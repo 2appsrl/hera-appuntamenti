@@ -15,7 +15,9 @@ export default async function GestionePage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'superadmin') redirect('/operatore')
+  if (!profile || profile.role !== 'superadmin') {
+    redirect(profile?.role === 'agente' ? '/agente' : profile?.role === 'operatore' ? '/operatore' : '/login')
+  }
 
   const { data: agents } = await supabase
     .from('agents')
@@ -33,12 +35,17 @@ export default async function GestionePage() {
     .order('name')
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header userName={profile.name} role={profile.role} />
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+      <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">Gestione</h2>
-          <a href="/admin" className="text-sm text-blue-600 hover:text-blue-800">&larr; Dashboard</a>
+          <h2 className="text-xl font-bold text-gray-900">Gestione</h2>
+          <a href="/admin" className="group flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">
+            <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Dashboard
+          </a>
         </div>
         <AgentManager agents={agents || []} availability={availability || []} />
         <OperatorManager operators={operators || []} />

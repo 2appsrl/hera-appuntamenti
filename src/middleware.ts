@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
       .single()
 
     const url = request.nextUrl.clone()
-    url.pathname = profile?.role === 'superadmin' ? '/admin' : '/operatore'
+    url.pathname = profile?.role === 'superadmin' ? '/admin' : profile?.role === 'agente' ? '/agente' : '/operatore'
     return NextResponse.redirect(url)
   }
 

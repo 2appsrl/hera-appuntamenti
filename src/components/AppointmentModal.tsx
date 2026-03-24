@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { createAppointment } from '@/app/operatore/actions'
+import { createAppointment, updateAppointment } from '@/app/operatore/actions'
 import type { Agent, AgentAvailability } from '@/lib/types'
 
 const DAY_NAMES = ['Lunedi', 'Martedi', 'Mercoledi', 'Giovedi', 'Venerdi', 'Sabato', 'Domenica']
@@ -15,20 +15,34 @@ export default function AppointmentModal({
   agents,
   availability,
   onClose,
+  onCreated,
+  editData,
 }: {
-  agents: Pick<Agent, 'id' | 'name' | 'type'>[]
+  agents: Pick<Agent, 'id' | 'name' | 'type' | 'address'>[]
   availability: AgentAvailability[]
   onClose: () => void
+  onCreated?: () => void
+  editData?: {
+    id: string
+    clientName: string
+    clientSurname: string
+    clientPhone: string
+    agentId: string
+    appointmentDate: string
+    appointmentTime: string
+    location: string
+    notes: string
+  }
 }) {
   const [form, setForm] = useState({
-    clientName: '',
-    clientSurname: '',
-    clientPhone: '',
-    agentId: '',
-    appointmentDate: '',
-    appointmentTime: '',
-    location: '',
-    notes: '',
+    clientName: editData?.clientName ?? '',
+    clientSurname: editData?.clientSurname ?? '',
+    clientPhone: editData?.clientPhone ?? '',
+    agentId: editData?.agentId ?? '',
+    appointmentDate: editData?.appointmentDate ?? '',
+    appointmentTime: editData?.appointmentTime ?? '',
+    location: editData?.location ?? '',
+    notes: editData?.notes ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -60,7 +74,16 @@ export default function AppointmentModal({
   function update(field: string, value: string) {
     setForm(prev => {
       const updated = { ...prev, [field]: value }
-      if (field === 'agentId') { updated.appointmentDate = ''; updated.appointmentTime = '' }
+      if (field === 'agentId') {
+        updated.appointmentDate = ''
+        updated.appointmentTime = ''
+        const selectedAgent = agents.find(a => a.id === value)
+        if (selectedAgent?.type === 'sportello' && selectedAgent.address) {
+          updated.location = selectedAgent.address
+        } else {
+          updated.location = ''
+        }
+      }
       if (field === 'appointmentDate') { updated.appointmentTime = '' }
       return updated
     })
@@ -77,7 +100,12 @@ export default function AppointmentModal({
 
     setSaving(true)
     try {
-      await createAppointment(form)
+      if (editData) {
+        await updateAppointment(editData.id, form)
+      } else {
+        await createAppointment(form)
+        onCreated?.()
+      }
       onClose()
     } catch {
       setError('Errore nel salvataggio')
@@ -90,7 +118,7 @@ export default function AppointmentModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-bold text-gray-800">Nuovo Appuntamento</h2>
+          <h2 className="text-lg font-bold text-gray-800">{editData ? 'Modifica Appuntamento' : 'Nuovo Appuntamento'}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
@@ -151,7 +179,7 @@ export default function AppointmentModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
             <input
               type="date" required value={form.appointmentDate}
-              min={new Date().toISOString().split('T')[0]}
+              min={editData ? undefined : new Date().toISOString().split('T')[0]}
               onChange={e => update('appointmentDate', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
@@ -204,7 +232,7 @@ export default function AppointmentModal({
             disabled={saving}
             className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-colors cursor-pointer"
           >
-            {saving ? 'Salvataggio...' : 'SALVA APPUNTAMENTO'}
+            {saving ? 'Salvataggio...' : editData ? 'AGGIORNA APPUNTAMENTO' : 'SALVA APPUNTAMENTO'}
           </button>
         </form>
       </div>

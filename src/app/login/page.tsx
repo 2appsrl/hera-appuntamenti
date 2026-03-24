@@ -34,7 +34,8 @@ export default function LoginPage() {
       .eq('id', user.id)
       .single()
 
-    router.push(profile?.role === 'superadmin' ? '/admin' : '/operatore')
+    const dest = profile?.role === 'superadmin' ? '/admin' : profile?.role === 'agente' ? '/agente' : '/operatore'
+    router.push(dest)
   }
 
   return (

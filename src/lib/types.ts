@@ -1,4 +1,4 @@
-export type UserRole = 'operatore' | 'superadmin'
+export type UserRole = 'operatore' | 'superadmin' | 'agente'
 export type OutcomeType = 'non_risponde' | 'negativo' | 'appuntamento'
 export type AgentType = 'agente' | 'sportello'
 
@@ -15,6 +15,8 @@ export interface Agent {
   name: string
   type: AgentType
   active: boolean
+  address: string | null
+  user_id: string | null
   created_at: string
 }
 
@@ -52,6 +54,11 @@ export interface AppointmentWithAgent extends Appointment {
   agents: Pick<Agent, 'name' | 'type'>
 }
 
+export interface AppointmentWithAgentAndOutcome extends Appointment {
+  agents: Pick<Agent, 'name' | 'type'>
+  appointment_outcomes: AppointmentOutcome | null
+}
+
 export interface OutcomeSummary {
   non_risponde: number
   negativo: number
@@ -62,8 +69,40 @@ export interface DailyOutcomeSummary extends OutcomeSummary {
   date: string
 }
 
+export interface CallSession {
+  id: string
+  user_id: string
+  started_at: string
+  ended_at: string | null
+  created_at: string
+}
+
+export interface AppointmentOutcomeSummary {
+  positivo: number
+  negativo: number
+  non_presentato: number
+  in_attesa: number
+}
+
 export interface OperatorSummary extends OutcomeSummary {
   user_id: string
   user_name: string
   total: number
+  minutes_worked: number
+  redemption: number // appuntamenti per ora
+  appointment_outcomes: AppointmentOutcomeSummary
+}
+
+export type AppointmentOutcomeType = 'positivo' | 'negativo' | 'non_presentato'
+
+export interface AppointmentOutcome {
+  id: string
+  appointment_id: string
+  outcome: AppointmentOutcomeType
+  notes: string | null
+  created_at: string
+}
+
+export interface AppointmentForAgent extends Appointment {
+  appointment_outcomes: AppointmentOutcome | null
 }

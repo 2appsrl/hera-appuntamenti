@@ -13,5 +13,6 @@ export default async function Home() {
     .eq('id', user.id)
     .single()
 
-  redirect(profile?.role === 'superadmin' ? '/admin' : '/operatore')
+  const dest = profile?.role === 'superadmin' ? '/admin' : profile?.role === 'agente' ? '/agente' : '/operatore'
+  redirect(dest)
 }

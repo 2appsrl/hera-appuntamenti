@@ -3,7 +3,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('operatore', 'superadmin')),
+  role TEXT NOT NULL CHECK (role IN ('operatore', 'superadmin', 'agente')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -13,6 +13,8 @@ CREATE TABLE agents (
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('agente', 'sportello')),
   active BOOLEAN DEFAULT TRUE,
+  address TEXT,
+  user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -50,11 +52,31 @@ CREATE TABLE appointments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Appointment outcomes (agent feedback)
+CREATE TABLE appointment_outcomes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE UNIQUE,
+  outcome TEXT NOT NULL CHECK (outcome IN ('positivo', 'negativo', 'non_presentato')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Call sessions (operator call time tracking)
+CREATE TABLE call_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes for common queries
 CREATE INDEX idx_call_outcomes_user_date ON call_outcomes(user_id, created_at);
 CREATE INDEX idx_call_outcomes_created_at ON call_outcomes(created_at);
 CREATE INDEX idx_appointments_user_date ON appointments(user_id, appointment_date);
 CREATE INDEX idx_appointments_agent_date ON appointments(agent_id, appointment_date);
+CREATE INDEX idx_appointment_outcomes_appointment ON appointment_outcomes(appointment_id);
+CREATE INDEX idx_call_sessions_user_date ON call_sessions(user_id, started_at);
 
 -- Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -62,6 +84,8 @@ ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_availability ENABLE ROW LEVEL SECURITY;
 ALTER TABLE call_outcomes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointment_outcomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE call_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: check if user is superadmin
 CREATE OR REPLACE FUNCTION is_superadmin()
@@ -99,3 +123,31 @@ CREATE POLICY "Superadmin can read all outcomes" ON call_outcomes FOR SELECT USI
 CREATE POLICY "Operators can insert own appointments" ON appointments FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "Operators can read own appointments" ON appointments FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "Superadmin can read all appointments" ON appointments FOR SELECT USING (is_superadmin());
+
+-- Helper function: get agent_id linked to current user
+CREATE OR REPLACE FUNCTION my_agent_id()
+RETURNS UUID AS $$
+  SELECT id FROM agents WHERE user_id = auth.uid() LIMIT 1;
+$$ LANGUAGE SQL SECURITY DEFINER;
+
+-- Agents can read their own appointments
+CREATE POLICY "Agents can read own appointments" ON appointments FOR SELECT
+  USING (agent_id = my_agent_id());
+
+-- Appointment outcomes policies
+CREATE POLICY "Agents can insert own outcomes" ON appointment_outcomes FOR INSERT
+  WITH CHECK (appointment_id IN (SELECT id FROM appointments WHERE agent_id = my_agent_id()));
+CREATE POLICY "Agents can update own outcomes" ON appointment_outcomes FOR UPDATE
+  USING (appointment_id IN (SELECT id FROM appointments WHERE agent_id = my_agent_id()));
+CREATE POLICY "Agents can read own outcomes" ON appointment_outcomes FOR SELECT
+  USING (appointment_id IN (SELECT id FROM appointments WHERE agent_id = my_agent_id()));
+CREATE POLICY "Superadmin can read all outcomes" ON appointment_outcomes FOR SELECT
+  USING (is_superadmin());
+CREATE POLICY "Operators can read related outcomes" ON appointment_outcomes FOR SELECT
+  USING (appointment_id IN (SELECT id FROM appointments WHERE user_id = auth.uid()));
+
+-- Call sessions policies
+CREATE POLICY "Operators can insert own sessions" ON call_sessions FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Operators can update own sessions" ON call_sessions FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Operators can read own sessions" ON call_sessions FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Superadmin can read all sessions" ON call_sessions FOR SELECT USING (is_superadmin());

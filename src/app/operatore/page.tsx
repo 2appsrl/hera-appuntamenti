@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/Header'
-import DailyCounter from '@/components/DailyCounter'
 import OperatorPageClient from './OperatorPageClient'
-import type { OutcomeSummary, AppointmentWithAgent } from '@/lib/types'
+import type { OutcomeSummary, AppointmentWithAgent, AppointmentWithAgentAndOutcome } from '@/lib/types'
 
 export default async function OperatorePage() {
   const supabase = await createClient()
@@ -16,49 +15,84 @@ export default async function OperatorePage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'operatore') redirect('/admin')
+  if (!profile || profile.role !== 'operatore') {
+    redirect(profile?.role === 'superadmin' ? '/admin' : profile?.role === 'agente' ? '/agente' : '/login')
+  }
 
-  // Today's counts
+  // Run all queries in parallel for fast page load
   const today = new Date().toISOString().split('T')[0]
-  const { data: outcomes } = await supabase
-    .from('call_outcomes')
-    .select('outcome')
-    .eq('user_id', user.id)
-    .gte('created_at', `${today}T00:00:00`)
-    .lte('created_at', `${today}T23:59:59`)
+
+  const [
+    { data: outcomes },
+    { data: appointments },
+    { data: agents },
+    { data: availability },
+    { data: activeSession },
+    { data: todaySessions },
+    { data: allAppointments },
+  ] = await Promise.all([
+    supabase
+      .from('call_outcomes')
+      .select('outcome')
+      .eq('user_id', user.id)
+      .gte('created_at', `${today}T00:00:00`)
+      .lte('created_at', `${today}T23:59:59`),
+    supabase
+      .from('appointments')
+      .select('*, agents(name, type)')
+      .eq('user_id', user.id)
+      .eq('appointment_date', today)
+      .order('appointment_time'),
+    supabase
+      .from('agents')
+      .select('id, name, type, address')
+      .eq('active', true)
+      .order('name'),
+    supabase
+      .from('agent_availability')
+      .select('*'),
+    supabase
+      .from('call_sessions')
+      .select('id, started_at')
+      .eq('user_id', user.id)
+      .is('ended_at', null)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('call_sessions')
+      .select('started_at, ended_at')
+      .eq('user_id', user.id)
+      .gte('started_at', `${today}T00:00:00`)
+      .not('ended_at', 'is', null),
+    supabase
+      .from('appointments')
+      .select('*, agents(name, type), appointment_outcomes(*)')
+      .eq('user_id', user.id)
+      .order('appointment_date')
+      .order('appointment_time'),
+  ])
 
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
   outcomes?.forEach(o => { counts[o.outcome as keyof OutcomeSummary]++ })
 
-  // Today's appointments
-  const { data: appointments } = await supabase
-    .from('appointments')
-    .select('*, agents(name, type)')
-    .eq('user_id', user.id)
-    .eq('appointment_date', today)
-    .order('appointment_time')
-
-  // Active agents for the form
-  const { data: agents } = await supabase
-    .from('agents')
-    .select('id, name, type')
-    .eq('active', true)
-    .order('name')
-
-  // Agent availability
-  const { data: availability } = await supabase
-    .from('agent_availability')
-    .select('*')
-
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header userName={profile.name} role={profile.role} />
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <DailyCounter counts={counts} />
+      <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">
         <OperatorPageClient
           agents={agents || []}
           availability={availability || []}
           todayAppointments={(appointments as AppointmentWithAgent[]) || []}
+          allAppointments={(allAppointments as AppointmentWithAgentAndOutcome[]) || []}
+          initialCounts={counts}
+          activeSessionStartedAt={activeSession?.started_at || null}
+          todayMinutesWorked={
+            (todaySessions || []).reduce((acc, s) => {
+              const start = new Date(s.started_at).getTime()
+              const end = new Date(s.ended_at!).getTime()
+              return acc + (end - start) / 60000
+            }, 0)
+          }
         />
       </main>
     </div>

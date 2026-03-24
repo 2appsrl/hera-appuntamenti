@@ -1,26 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { recordOutcome } from '@/app/operatore/actions'
-import type { OutcomeType } from '@/lib/types'
+import type { OutcomeType, OutcomeSummary } from '@/lib/types'
 
-export default function OutcomeButtons({ onAppointmentClick }: { onAppointmentClick: () => void }) {
+export default function OutcomeButtons({
+  onAppointmentClick,
+  onOptimisticUpdate,
+}: {
+  onAppointmentClick: () => void
+  onOptimisticUpdate?: (outcome: keyof OutcomeSummary) => void
+}) {
   const [feedback, setFeedback] = useState<string | null>(null)
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  async function handleOutcome(outcome: OutcomeType) {
+  function handleOutcome(outcome: OutcomeType) {
     if (outcome === 'appuntamento') {
       onAppointmentClick()
       return
     }
 
-    try {
-      await recordOutcome(outcome)
-      setFeedback(outcome === 'non_risponde' ? 'Non risponde registrato' : 'Negativo registrato')
-      setTimeout(() => setFeedback(null), 1500)
-    } catch {
+    // Optimistic update — counter increments instantly
+    onOptimisticUpdate?.(outcome)
+
+    // Show quick feedback
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+    setFeedback(outcome === 'non_risponde' ? 'Non risponde ✓' : 'Negativo ✓')
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 800)
+
+    // Fire-and-forget — server saves in background, no page re-render
+    recordOutcome(outcome).catch(() => {
       setFeedback('Errore nel salvataggio')
-      setTimeout(() => setFeedback(null), 2000)
-    }
+      feedbackTimer.current = setTimeout(() => setFeedback(null), 2000)
+    })
   }
 
   return (
@@ -28,25 +40,47 @@ export default function OutcomeButtons({ onAppointmentClick }: { onAppointmentCl
       <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => handleOutcome('non_risponde')}
-          className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold py-8 px-4 rounded-xl text-base leading-tight transition-all shadow-lg cursor-pointer"
+          className="group relative overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 active:scale-[0.97] text-white font-bold py-14 px-6 rounded-2xl text-lg leading-snug transition-all duration-200 shadow-[0_8px_30px_rgba(249,115,22,0.3)] hover:shadow-[0_8px_40px_rgba(249,115,22,0.45)] cursor-pointer"
         >
-          NON RISPONDE /<br />OCCUPATO /<br />RICHIAMARE
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex flex-col items-center gap-3">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6m0 0v6m0-6L13 11" />
+            </svg>
+            <span className="text-center">NON RISPONDE<br/>OCCUPATO<br/>RICHIAMARE</span>
+          </div>
         </button>
+
         <button
           onClick={() => handleOutcome('negativo')}
-          className="bg-red-500 hover:bg-red-600 active:scale-95 text-white font-bold py-8 px-4 rounded-xl text-lg transition-all shadow-lg cursor-pointer"
+          className="group relative overflow-hidden bg-gradient-to-br from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 active:scale-[0.97] text-white font-bold py-14 px-6 rounded-2xl text-lg transition-all duration-200 shadow-[0_8px_30px_rgba(239,68,68,0.3)] hover:shadow-[0_8px_40px_rgba(239,68,68,0.45)] cursor-pointer"
         >
-          NEGATIVO
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex flex-col items-center gap-3">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <span>NEGATIVO</span>
+          </div>
         </button>
       </div>
+
       <button
         onClick={() => handleOutcome('appuntamento')}
-        className="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-10 px-4 rounded-xl text-xl transition-all shadow-lg cursor-pointer"
+        className="group relative overflow-hidden w-full bg-gradient-to-br from-emerald-400 to-emerald-600 hover:from-emerald-500 hover:to-emerald-700 active:scale-[0.97] text-white font-bold py-16 px-6 rounded-2xl text-2xl transition-all duration-200 shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_8px_40px_rgba(16,185,129,0.45)] cursor-pointer"
       >
-        APPUNTAMENTO FISSATO
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="relative flex flex-col items-center gap-3">
+          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>APPUNTAMENTO FISSATO</span>
+        </div>
       </button>
+
       {feedback && (
-        <div className="text-center py-2 px-4 bg-gray-800 text-white rounded-lg animate-pulse">
+        <div className="text-center py-2.5 px-4 bg-gray-900 text-white rounded-xl text-sm font-medium shadow-lg">
           {feedback}
         </div>
       )}

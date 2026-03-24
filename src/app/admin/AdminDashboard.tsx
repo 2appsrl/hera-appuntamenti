@@ -8,28 +8,13 @@ import type { OutcomeSummary, DailyOutcomeSummary, OperatorSummary } from '@/lib
 
 const COLORS = { non_risponde: '#f97316', negativo: '#ef4444', appuntamento: '#22c55e' }
 
-interface AppointmentRow {
-  id: string
-  client_name: string
-  client_surname: string
-  client_phone: string
-  appointment_date: string
-  appointment_time: string
-  location: string
-  notes: string | null
-  agents: { name: string; type: string } | null
-  users: { name: string } | null
-}
-
 export default function AdminDashboard({
   dailyData,
   operatorSummaries,
-  appointments,
   counts,
 }: {
   dailyData: DailyOutcomeSummary[]
   operatorSummaries: OperatorSummary[]
-  appointments: AppointmentRow[]
   counts: OutcomeSummary
 }) {
   const total = counts.non_risponde + counts.negativo + counts.appuntamento
@@ -39,68 +24,47 @@ export default function AdminDashboard({
     { name: 'Appuntamenti', value: counts.appuntamento, color: COLORS.appuntamento },
   ].filter(d => d.value > 0)
 
-  function exportCSV() {
-    const headers = ['Data', 'Ora', 'Cliente', 'Telefono', 'Agente', 'Luogo', 'Note', 'Operatrice']
-    const rows = appointments.map(a => [
-      a.appointment_date,
-      a.appointment_time?.slice(0, 5),
-      `${a.client_name} ${a.client_surname}`,
-      a.client_phone,
-      a.agents?.name || '',
-      a.location,
-      a.notes || '',
-      a.users?.name || '',
-    ])
-
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `appuntamenti-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <div className="space-y-6">
       {/* Charts */}
       {dailyData.length > 1 && (
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <h3 className="font-semibold text-gray-700 mb-4">Andamento giornaliero</h3>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-5">Andamento giornaliero</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={dailyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }} />
               <Legend />
-              <Line type="monotone" dataKey="non_risponde" name="Non risponde" stroke={COLORS.non_risponde} strokeWidth={2} />
-              <Line type="monotone" dataKey="negativo" name="Negativi" stroke={COLORS.negativo} strokeWidth={2} />
-              <Line type="monotone" dataKey="appuntamento" name="Appuntamenti" stroke={COLORS.appuntamento} strokeWidth={2} />
+              <Line type="monotone" dataKey="non_risponde" name="Non risponde" stroke={COLORS.non_risponde} strokeWidth={2.5} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="negativo" name="Negativi" stroke={COLORS.negativo} strokeWidth={2.5} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="appuntamento" name="Appuntamenti" stroke={COLORS.appuntamento} strokeWidth={2.5} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
       {total > 0 && (
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <h3 className="font-semibold text-gray-700 mb-4">Distribuzione esiti</h3>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-5">Distribuzione esiti</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius={90}
+                innerRadius={50}
                 dataKey="value"
                 label={(props) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                strokeWidth={0}
               >
                 {pieData.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -108,77 +72,55 @@ export default function AdminDashboard({
 
       {/* Operator table */}
       {operatorSummaries.length > 0 && (
-        <div className="bg-white rounded-lg p-4 shadow-sm border overflow-x-auto">
-          <h3 className="font-semibold text-gray-700 mb-4">Riepilogo per operatrice</h3>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 overflow-x-auto">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-5">Riepilogo per operatrice</h3>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left">
-                <th className="pb-2">Operatrice</th>
-                <th className="pb-2 text-center">Non risp.</th>
-                <th className="pb-2 text-center">Negativi</th>
-                <th className="pb-2 text-center">Appuntamenti</th>
-                <th className="pb-2 text-center font-bold">Totale</th>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="pb-3 font-semibold text-gray-500">Operatrice</th>
+                <th className="pb-3 text-center font-semibold text-gray-500">Non risp.</th>
+                <th className="pb-3 text-center font-semibold text-gray-500">Negativi</th>
+                <th className="pb-3 text-center font-semibold text-gray-500">Appuntam.</th>
+                <th className="pb-3 text-center font-bold text-gray-700">Totale</th>
+                <th className="pb-3 text-center font-semibold text-gray-500">Ore lavoro</th>
+                <th className="pb-3 text-center font-semibold text-gray-500">App/ora</th>
               </tr>
             </thead>
             <tbody>
-              {operatorSummaries.map(op => (
-                <tr key={op.user_id} className="border-b">
-                  <td className="py-2">{op.user_name}</td>
-                  <td className="py-2 text-center text-orange-600">{op.non_risponde}</td>
-                  <td className="py-2 text-center text-red-600">{op.negativo}</td>
-                  <td className="py-2 text-center text-green-600">{op.appuntamento}</td>
-                  <td className="py-2 text-center font-bold">{op.total}</td>
-                </tr>
-              ))}
+              {operatorSummaries.map(op => {
+                const h = Math.floor(op.minutes_worked / 60)
+                const m = op.minutes_worked % 60
+                const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`
+                return (
+                  <tr key={op.user_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3 font-medium text-gray-900">{op.user_name}</td>
+                    <td className="py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 text-orange-600 font-semibold text-sm">{op.non_risponde}</span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-600 font-semibold text-sm">{op.negativo}</span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 font-semibold text-sm">{op.appuntamento}</span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-700 font-bold text-sm">{op.total}</span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className="text-sm font-medium text-gray-600">{op.minutes_worked > 0 ? timeStr : '-'}</span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className={`inline-flex items-center justify-center px-2 py-1 rounded-lg text-sm font-bold ${op.redemption > 0 ? 'bg-purple-50 text-purple-700' : 'text-gray-300'}`}>
+                        {op.redemption > 0 ? op.redemption : '-'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
-
-      {/* Appointments list */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border overflow-x-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-700">Appuntamenti fissati ({appointments.length})</h3>
-          {appointments.length > 0 && (
-            <button onClick={exportCSV}
-              className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-200 cursor-pointer">
-              Export CSV
-            </button>
-          )}
-        </div>
-        {appointments.length === 0 ? (
-          <p className="text-gray-500 text-sm">Nessun appuntamento nel periodo selezionato</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="pb-2">Data</th>
-                <th className="pb-2">Ora</th>
-                <th className="pb-2">Cliente</th>
-                <th className="pb-2">Telefono</th>
-                <th className="pb-2">Agente</th>
-                <th className="pb-2">Luogo</th>
-                <th className="pb-2">Operatrice</th>
-                <th className="pb-2">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.map(a => (
-                <tr key={a.id} className="border-b">
-                  <td className="py-2">{a.appointment_date}</td>
-                  <td className="py-2">{a.appointment_time?.slice(0, 5)}</td>
-                  <td className="py-2">{a.client_name} {a.client_surname}</td>
-                  <td className="py-2">{a.client_phone}</td>
-                  <td className="py-2">{a.agents?.name}</td>
-                  <td className="py-2">{a.location}</td>
-                  <td className="py-2">{a.users?.name}</td>
-                  <td className="py-2 text-gray-500">{a.notes || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   )
 }
