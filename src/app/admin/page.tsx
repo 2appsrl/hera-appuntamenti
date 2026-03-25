@@ -1,11 +1,14 @@
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import Filters from '@/components/Filters'
 import SummaryCards from '@/components/SummaryCards'
 import AdminDashboard from './AdminDashboard'
 import type { OutcomeSummary } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
 
 export default async function AdminPage({
   searchParams,
@@ -33,21 +36,24 @@ export default async function AdminPage({
   const dateFrom = showAll ? '' : (params.from || today)
   const dateTo = showAll ? '' : (params.to || today)
 
+  // Use admin client to bypass RLS — user is already verified as superadmin above
+  const admin = createAdminClient()
+
   // Fetch operators list (for filter dropdown)
-  const { data: operators } = await supabase
+  const { data: operators } = await admin
     .from('users')
     .select('id, name')
     .eq('role', 'operatore')
     .order('name')
 
   // Fetch agents list (for filter dropdown + appointment reassignment)
-  const { data: allAgents } = await supabase
+  const { data: allAgents } = await admin
     .from('agents')
     .select('id, name, type, address')
     .order('name')
 
   // Build call_outcomes query with filters
-  let outcomesQuery = supabase
+  let outcomesQuery = admin
     .from('call_outcomes')
     .select('*')
 
@@ -61,7 +67,7 @@ export default async function AdminPage({
   const { data: outcomes } = await outcomesQuery
 
   // Fetch call sessions for the period
-  let sessionsQuery = supabase
+  let sessionsQuery = admin
     .from('call_sessions')
     .select('user_id, started_at, ended_at')
     .not('ended_at', 'is', null)

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import AppointmentsPageClient from './AppointmentsPageClient'
 
@@ -31,23 +32,26 @@ export default async function AppuntamentiPage({
   const dateFrom = showAll ? '' : (params.from || today)
   const dateTo = showAll ? '' : (params.to || today)
 
+  // Use admin client to bypass RLS — user is already verified as superadmin above
+  const admin = createAdminClient()
+
   // Parallel queries
   const [
     { data: agents },
     { data: operators },
     { data: appointments },
   ] = await Promise.all([
-    supabase
+    admin
       .from('agents')
       .select('id, name, type, address')
       .order('name'),
-    supabase
+    admin
       .from('users')
       .select('id, name')
       .eq('role', 'operatore')
       .order('name'),
     (() => {
-      let q = supabase
+      let q = admin
         .from('appointments')
         .select('*, agents(name, type), users(name), appointment_outcomes(*)')
         .order('appointment_date', { ascending: true })
