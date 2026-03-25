@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import OperatorPageClient from './OperatorPageClient'
 import type { OutcomeSummary, AppointmentWithAgent, AppointmentWithAgentAndOutcome } from '@/lib/types'
@@ -66,7 +67,8 @@ export default async function OperatorePage() {
       .eq('user_id', user.id)
       .gte('started_at', `${today}T00:00:00`)
       .not('ended_at', 'is', null),
-    supabase
+    // Use admin client to bypass RLS for reading appointment outcomes
+    createAdminClient()
       .from('appointments')
       .select('*, agents(name, type), appointment_outcomes(*)')
       .eq('user_id', user.id)
