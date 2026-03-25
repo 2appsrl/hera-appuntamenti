@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/Header'
 import AppointmentsPageClient from './AppointmentsPageClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AppuntamentiPage({
   searchParams,
 }: {
@@ -60,12 +62,21 @@ export default async function AppuntamentiPage({
     })(),
   ])
 
+  // Normalize appointment_outcomes: Supabase may return array or object
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizedAppointments = (appointments || []).map((a: any) => ({
+    ...a,
+    appointment_outcomes: Array.isArray(a.appointment_outcomes)
+      ? (a.appointment_outcomes[0] || null)
+      : (a.appointment_outcomes || null),
+  }))
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header userName={profile.name} role={profile.role} />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <AppointmentsPageClient
-          appointments={appointments || []}
+          appointments={normalizedAppointments}
           agents={agents || []}
           operators={operators || []}
           initialFrom={dateFrom}

@@ -4,6 +4,8 @@ import Header from '@/components/Header'
 import OperatorPageClient from './OperatorPageClient'
 import type { OutcomeSummary, AppointmentWithAgent, AppointmentWithAgentAndOutcome } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+
 export default async function OperatorePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -75,6 +77,15 @@ export default async function OperatorePage() {
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
   outcomes?.forEach(o => { counts[o.outcome as keyof OutcomeSummary]++ })
 
+  // Normalize appointment_outcomes: Supabase may return array or object depending on relation detection
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizedAppointments: AppointmentWithAgentAndOutcome[] = (allAppointments || []).map((a: any) => ({
+    ...a,
+    appointment_outcomes: Array.isArray(a.appointment_outcomes)
+      ? (a.appointment_outcomes[0] || null)
+      : (a.appointment_outcomes || null),
+  }))
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header userName={profile.name} role={profile.role} />
@@ -83,7 +94,7 @@ export default async function OperatorePage() {
           agents={agents || []}
           availability={availability || []}
           todayAppointments={(appointments as AppointmentWithAgent[]) || []}
-          allAppointments={(allAppointments as AppointmentWithAgentAndOutcome[]) || []}
+          allAppointments={normalizedAppointments}
           initialCounts={counts}
           activeSessionStartedAt={activeSession?.started_at || null}
           todayMinutesWorked={
