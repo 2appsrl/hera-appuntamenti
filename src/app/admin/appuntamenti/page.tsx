@@ -35,11 +35,12 @@ export default async function AppuntamentiPage({
   // Use admin client to bypass RLS — user is already verified as superadmin above
   const admin = createAdminClient()
 
-  // Parallel queries
+  // Parallel queries — fetch appointments WITHOUT joins to avoid filtering issues
   const [
     { data: agents },
     { data: operators },
-    { data: appointments },
+    { data: rawAppointments },
+    { data: outcomes },
   ] = await Promise.all([
     admin
       .from('agents')
@@ -53,7 +54,7 @@ export default async function AppuntamentiPage({
     (() => {
       let q = admin
         .from('appointments')
-        .select('*, agents(name, type), users(name), appointment_outcomes(*)')
+        .select('*')
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true })
 
@@ -64,16 +65,31 @@ export default async function AppuntamentiPage({
 
       return q
     })(),
+    admin
+      .from('appointment_outcomes')
+      .select('*'),
   ])
 
-  // Normalize appointment_outcomes: Supabase may return array or object
+  // Build lookup maps
+  const agentMap = new Map((agents || []).map(a => [a.id, a]))
+  const operatorMap = new Map((operators || []).map(o => [o.id, o]))
+  // Also add all users (not just operators) for the user_id lookup
+  const { data: allUsers } = await admin.from('users').select('id, name')
+  const userMap = new Map((allUsers || []).map(u => [u.id, u]))
+  const outcomeMap = new Map((outcomes || []).map(o => [o.appointment_id, o]))
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const normalizedAppointments = (appointments || []).map((a: any) => ({
-    ...a,
-    appointment_outcomes: Array.isArray(a.appointment_outcomes)
-      ? (a.appointment_outcomes[0] || null)
-      : (a.appointment_outcomes || null),
-  }))
+  const normalizedAppointments = (rawAppointments || []).map((a: any) => {
+    const agent = agentMap.get(a.agent_id)
+    const user = userMap.get(a.user_id)
+    const outcome = outcomeMap.get(a.id)
+    return {
+      ...a,
+      agents: agent ? { name: agent.name, type: agent.type } : null,
+      users: user ? { name: user.name } : null,
+      appointment_outcomes: outcome || null,
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">

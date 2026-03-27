@@ -114,8 +114,9 @@ export default function AppointmentsPageClient({
 
   function applyFilters() {
     const params = new URLSearchParams()
-    if (dateFrom) params.set('from', dateFrom)
-    if (dateTo) params.set('to', dateTo)
+    // Always set from/to — empty means "show all"
+    params.set('from', dateFrom)
+    params.set('to', dateTo)
     if (agentId) params.set('agent', agentId)
     if (operatorId) params.set('operator', operatorId)
     router.push(`/admin/appuntamenti?${params.toString()}`)
