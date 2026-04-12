@@ -23,6 +23,8 @@ export default function OperatorPageClient({
   initialCounts,
   activeSessionStartedAt,
   todayMinutesWorked,
+  monthlyCallCount,
+  monthlyCallLimit,
 }: {
   agents: Pick<Agent, 'id' | 'name' | 'type' | 'address'>[]
   availability: AgentAvailability[]
@@ -31,6 +33,8 @@ export default function OperatorPageClient({
   initialCounts: OutcomeSummary
   activeSessionStartedAt: string | null
   todayMinutesWorked: number
+  monthlyCallCount: number
+  monthlyCallLimit: number | null
 }) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
@@ -48,9 +52,22 @@ export default function OperatorPageClient({
     setCounts(initialCounts)
   }, [initialCounts])
 
+  // Monthly call limit tracking
+  const [monthlyCount, setMonthlyCount] = useState(monthlyCallCount)
+  const [showLimitAlert, setShowLimitAlert] = useState(
+    !!(monthlyCallLimit && monthlyCallCount >= monthlyCallLimit)
+  )
+
   // Called by OutcomeButtons for instant UI update
   function handleOptimisticOutcome(outcome: keyof OutcomeSummary) {
     setCounts(prev => ({ ...prev, [outcome]: prev[outcome] + 1 }))
+    if (monthlyCallLimit) {
+      setMonthlyCount(prev => {
+        const newCount = prev + 1
+        if (newCount >= monthlyCallLimit) setShowLimitAlert(true)
+        return newCount
+      })
+    }
   }
 
   // Timer for active session
@@ -153,6 +170,42 @@ export default function OperatorPageClient({
 
   return (
     <>
+      {/* Monthly limit alert modal */}
+      {showLimitAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div className="bg-gradient-to-br from-red-500 to-red-700 p-8 text-center">
+              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-black text-white leading-tight">
+                Numero Esiti massimi raggiunto!!!
+              </h2>
+            </div>
+            <div className="p-8 text-center space-y-6">
+              <p className="text-gray-800 font-bold text-lg leading-relaxed">
+                Continua a chiamare ma non esitare più su Salesforce,<br />
+                continua ad esitare su questo programma
+              </p>
+              {monthlyCallLimit && (
+                <div className="bg-red-50 rounded-2xl px-6 py-3 inline-block">
+                  <span className="text-red-600 font-bold text-xl">{monthlyCount}</span>
+                  <span className="text-red-400 text-sm font-medium"> / {monthlyCallLimit} esiti questo mese</span>
+                </div>
+              )}
+              <button
+                onClick={() => setShowLimitAlert(false)}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-8 rounded-2xl text-lg transition-all shadow-lg hover:shadow-xl cursor-pointer"
+              >
+                Ho capito, continuo a chiamare
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Optimistic daily counter */}
       <DailyCounter counts={counts} />
 

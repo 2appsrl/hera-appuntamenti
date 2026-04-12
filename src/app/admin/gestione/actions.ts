@@ -125,3 +125,13 @@ export async function deleteOperator(id: string) {
   // Profile will cascade delete
   revalidatePath('/admin/gestione')
 }
+
+export async function updateOperatorLimit(userId: string, limit: number | null) {
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('users')
+    .update({ monthly_call_limit: limit })
+    .eq('id', userId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/gestione')
+}

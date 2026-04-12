@@ -4,8 +4,12 @@ CREATE TABLE users (
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('operatore', 'superadmin', 'agente')),
+  monthly_call_limit INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration: add monthly_call_limit if upgrading from older schema
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_call_limit INTEGER;
 
 -- Agents and sportelli
 CREATE TABLE agents (

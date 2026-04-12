@@ -7,6 +7,7 @@ export interface User {
   email: string
   name: string
   role: UserRole
+  monthly_call_limit: number | null
   created_at: string
 }
 

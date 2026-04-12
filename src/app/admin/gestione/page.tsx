@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import AgentManager from './AgentManager'
 import OperatorManager from './OperatorManager'
@@ -19,20 +20,17 @@ export default async function GestionePage() {
     redirect(profile?.role === 'agente' ? '/agente' : profile?.role === 'operatore' ? '/operatore' : '/login')
   }
 
-  const { data: agents } = await supabase
-    .from('agents')
-    .select('*')
-    .order('name')
+  const admin = createAdminClient()
 
-  const { data: availability } = await supabase
-    .from('agent_availability')
-    .select('*')
-
-  const { data: operators } = await supabase
-    .from('users')
-    .select('*')
-    .eq('role', 'operatore')
-    .order('name')
+  const [
+    { data: agents },
+    { data: availability },
+    { data: operators },
+  ] = await Promise.all([
+    admin.from('agents').select('*').order('name'),
+    admin.from('agent_availability').select('*'),
+    admin.from('users').select('*').eq('role', 'operatore').order('name'),
+  ])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">

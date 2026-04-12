@@ -14,7 +14,7 @@ export default async function OperatorePage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('name, role')
+    .select('name, role, monthly_call_limit')
     .eq('id', user.id)
     .single()
 
@@ -24,6 +24,7 @@ export default async function OperatorePage() {
 
   // Run all queries in parallel for fast page load
   const today = new Date().toISOString().split('T')[0]
+  const firstOfMonth = today.slice(0, 8) + '01'
 
   const [
     { data: outcomes },
@@ -33,6 +34,7 @@ export default async function OperatorePage() {
     { data: activeSession },
     { data: todaySessions },
     { data: allAppointments },
+    { count: monthlyCallCountResult },
   ] = await Promise.all([
     supabase
       .from('call_outcomes')
@@ -74,6 +76,12 @@ export default async function OperatorePage() {
       .eq('user_id', user.id)
       .order('appointment_date')
       .order('appointment_time'),
+    // Monthly call count (from 1st of month)
+    supabase
+      .from('call_outcomes')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', `${firstOfMonth}T00:00:00`),
   ])
 
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
@@ -106,6 +114,8 @@ export default async function OperatorePage() {
               return acc + (end - start) / 60000
             }, 0)
           }
+          monthlyCallCount={monthlyCallCountResult ?? 0}
+          monthlyCallLimit={profile.monthly_call_limit ?? null}
         />
       </main>
     </div>
