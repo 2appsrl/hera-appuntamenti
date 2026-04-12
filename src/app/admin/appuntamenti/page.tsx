@@ -91,23 +91,9 @@ export default async function AppuntamentiPage({
     }
   })
 
-  // DEBUG: temporary - remove after fix
-  console.log('[DEBUG appointments]', {
-    showAll,
-    dateFrom,
-    dateTo,
-    rawCount: rawAppointments?.length,
-    normalizedCount: normalizedAppointments.length,
-    params,
-  })
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header userName={profile.name} role={profile.role} />
-      {/* DEBUG: temporary */}
-      <pre className="text-xs bg-yellow-100 p-2 mx-4">
-        {JSON.stringify({ showAll, dateFrom, dateTo, rawCount: rawAppointments?.length, normalizedCount: normalizedAppointments.length, params }, null, 2)}
-      </pre>
       <main className="max-w-6xl mx-auto px-4 py-8">
         <AppointmentsPageClient
           appointments={normalizedAppointments}

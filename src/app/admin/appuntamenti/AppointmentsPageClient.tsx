@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAppointmentAgent, deleteAppointment } from '../actions'
 
@@ -65,6 +65,11 @@ export default function AppointmentsPageClient({
   const router = useRouter()
   const [appointments, setAppointments] = useState(initialAppointments)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Sync appointments when server data changes (after client-side navigation)
+  useEffect(() => {
+    setAppointments(initialAppointments)
+  }, [initialAppointments])
   const [saving, setSaving] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
 
