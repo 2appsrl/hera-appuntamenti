@@ -29,7 +29,7 @@ export default async function GestionePage() {
   ] = await Promise.all([
     admin.from('agents').select('*').order('name'),
     admin.from('agent_availability').select('*'),
-    admin.from('users').select('*').eq('role', 'operatore').order('name'),
+    admin.from('users').select('id, email, name, role, monthly_call_limit, created_at').eq('role', 'operatore').order('name'),
   ])
 
   return (
