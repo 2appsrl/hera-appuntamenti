@@ -155,3 +155,18 @@ CREATE POLICY "Operators can insert own sessions" ON call_sessions FOR INSERT WI
 CREATE POLICY "Operators can update own sessions" ON call_sessions FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Operators can read own sessions" ON call_sessions FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "Superadmin can read all sessions" ON call_sessions FOR SELECT USING (is_superadmin());
+
+-- Campaign nominativi entries (KPI tracking)
+CREATE TABLE campaign_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  month text NOT NULL, -- "2026-04" format
+  count integer NOT NULL,
+  note text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_campaign_entries_user_month ON campaign_entries(user_id, month);
+
+ALTER TABLE campaign_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Superadmin can manage campaign entries" ON campaign_entries FOR ALL USING (is_superadmin());
