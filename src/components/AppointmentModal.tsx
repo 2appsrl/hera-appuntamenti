@@ -188,23 +188,19 @@ export default function AppointmentModal({
             )}
           </div>
 
-          {timeSlots.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ora</label>
-              <select
-                required value={form.appointmentTime}
-                onChange={e => update('appointmentTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Seleziona fascia...</option>
-                {timeSlots.map((slot, i) => (
-                  <option key={i} value={slot.start_time}>
-                    {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ora</label>
+            <input
+              type="time" required value={form.appointmentTime ? form.appointmentTime.slice(0, 5) : ''}
+              onChange={e => update('appointmentTime', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+            {timeSlots.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Fasce disponibili: {timeSlots.map(s => `${s.start_time.slice(0, 5)}-${s.end_time.slice(0, 5)}`).join(', ')}
+              </p>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Luogo</label>
