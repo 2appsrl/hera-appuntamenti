@@ -3,17 +3,39 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import type { OutcomeType } from '@/lib/types'
+import type { OutcomeType, NegativeReason } from '@/lib/types'
 
-export async function recordOutcome(outcome: OutcomeType) {
+export async function recordOutcome(
+  outcome: OutcomeType,
+  details?: { negativeReason?: NegativeReason; negativeNotes?: string },
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
+  // Validazione coerenza
+  if (outcome === 'negativo') {
+    if (!details?.negativeReason) {
+      throw new Error('Motivo obbligatorio per esito negativo')
+    }
+  } else if (details?.negativeReason || details?.negativeNotes) {
+    throw new Error('negative_reason/notes validi solo per outcome=negativo')
+  }
+
+  const trimmedNotes = details?.negativeNotes?.trim()
+  const notesValue = trimmedNotes && trimmedNotes.length > 0
+    ? trimmedNotes.slice(0, 500)
+    : null
+
   const admin = createAdminClient()
   const { error } = await admin
     .from('call_outcomes')
-    .insert({ user_id: user.id, outcome })
+    .insert({
+      user_id: user.id,
+      outcome,
+      negative_reason: outcome === 'negativo' ? details!.negativeReason : null,
+      negative_notes: outcome === 'negativo' ? notesValue : null,
+    })
 
   if (error) throw new Error('Errore nel salvataggio')
 
