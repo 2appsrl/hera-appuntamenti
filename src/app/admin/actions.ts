@@ -66,6 +66,12 @@ export async function deleteAppointment(appointmentId: string) {
   // Use admin client for mutations (bypasses RLS)
   const admin = createAdminClient()
 
+  const { data: appointment } = await admin
+    .from('appointments')
+    .select('call_outcome_id')
+    .eq('id', appointmentId)
+    .single()
+
   // Delete appointment outcomes first (FK constraint)
   await admin
     .from('appointment_outcomes')
@@ -79,6 +85,16 @@ export async function deleteAppointment(appointmentId: string) {
 
   if (error) throw new Error('Errore nell\'eliminazione')
 
+  // Also delete the originating call_outcome so dashboard counts stay in sync
+  if (appointment?.call_outcome_id) {
+    await admin
+      .from('call_outcomes')
+      .delete()
+      .eq('id', appointment.call_outcome_id)
+  }
+
+  revalidatePath('/admin')
   revalidatePath('/admin/appuntamenti')
+  revalidatePath('/admin/kpi')
   return { success: true }
 }
