@@ -86,7 +86,7 @@ export default function AdminDashboard({
               const widthPct = (row.count / maxBreakdown) * 100
               return (
                 <div key={row.key} className="flex items-center gap-3">
-                  <span className="w-48 text-sm text-gray-700 truncate" title={row.label}>{row.label}</span>
+                  <span className="w-60 text-sm text-gray-700 truncate" title={row.label}>{row.label}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div
                       className="h-3 rounded-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500"
