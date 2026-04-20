@@ -1,5 +1,31 @@
 export type UserRole = 'operatore' | 'superadmin' | 'agente'
 export type OutcomeType = 'non_risponde' | 'negativo' | 'appuntamento'
+export type NegativeReason =
+  | 'gia_esitato'
+  | 'referente_diverso'
+  | 'anagrafica_doppia'
+  | 'gia_cliente'
+  | 'recapito_inesistente'
+  | 'altro'
+
+export const NEGATIVE_REASON_LABELS: Record<NegativeReason, string> = {
+  gia_esitato: 'Già esitato nella lista precedente',
+  referente_diverso: 'Referente diverso dall\'intestatario',
+  anagrafica_doppia: 'Anagrafica doppia',
+  gia_cliente: 'Già cliente',
+  recapito_inesistente: 'Recapito telefonico inesistente',
+  altro: 'Altro',
+}
+
+export const NEGATIVE_REASON_ORDER: NegativeReason[] = [
+  'gia_esitato',
+  'referente_diverso',
+  'anagrafica_doppia',
+  'gia_cliente',
+  'recapito_inesistente',
+  'altro',
+]
+
 export type AgentType = 'agente' | 'sportello'
 
 export interface User {
@@ -33,6 +59,8 @@ export interface CallOutcome {
   id: string
   user_id: string
   outcome: OutcomeType
+  negative_reason: NegativeReason | null
+  negative_notes: string | null
   created_at: string
 }
 
