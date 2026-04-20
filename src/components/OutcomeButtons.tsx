@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react'
 import { recordOutcome } from '@/app/operatore/actions'
 import type { OutcomeType, OutcomeSummary } from '@/lib/types'
+import NegativeOutcomeModal from '@/components/NegativeOutcomeModal'
+import type { NegativeReason } from '@/lib/types'
 
 export default function OutcomeButtons({
   onAppointmentClick,
@@ -13,23 +15,36 @@ export default function OutcomeButtons({
 }) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [negativeModalOpen, setNegativeModalOpen] = useState(false)
 
   function handleOutcome(outcome: OutcomeType) {
     if (outcome === 'appuntamento') {
       onAppointmentClick()
       return
     }
+    if (outcome === 'negativo') {
+      setNegativeModalOpen(true)
+      return
+    }
 
-    // Optimistic update — counter increments instantly
+    // non_risponde: fire-and-forget as before
     onOptimisticUpdate?.(outcome)
-
-    // Show quick feedback
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-    setFeedback(outcome === 'non_risponde' ? 'Non risponde ✓' : 'Negativo ✓')
+    setFeedback('Non risponde ✓')
     feedbackTimer.current = setTimeout(() => setFeedback(null), 800)
-
-    // Fire-and-forget — server saves in background, no page re-render
     recordOutcome(outcome).catch(() => {
+      setFeedback('Errore nel salvataggio')
+      feedbackTimer.current = setTimeout(() => setFeedback(null), 2000)
+    })
+  }
+
+  function handleNegativeConfirm(reason: NegativeReason, notes: string) {
+    setNegativeModalOpen(false)
+    onOptimisticUpdate?.('negativo')
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+    setFeedback('Negativo ✓')
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 800)
+    recordOutcome('negativo', { negativeReason: reason, negativeNotes: notes }).catch(() => {
       setFeedback('Errore nel salvataggio')
       feedbackTimer.current = setTimeout(() => setFeedback(null), 2000)
     })
@@ -84,6 +99,12 @@ export default function OutcomeButtons({
           {feedback}
         </div>
       )}
+
+      <NegativeOutcomeModal
+        open={negativeModalOpen}
+        onConfirm={handleNegativeConfirm}
+        onCancel={() => setNegativeModalOpen(false)}
+      />
     </div>
   )
 }
