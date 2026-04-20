@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { MAX_NEGATIVE_NOTES_LEN } from '@/lib/types'
 import type { OutcomeType, NegativeReason } from '@/lib/types'
 
 export async function recordOutcome(
@@ -24,7 +25,7 @@ export async function recordOutcome(
 
   const trimmedNotes = details?.negativeNotes?.trim()
   const notesValue = trimmedNotes && trimmedNotes.length > 0
-    ? trimmedNotes.slice(0, 500)
+    ? trimmedNotes.slice(0, MAX_NEGATIVE_NOTES_LEN)
     : null
 
   const admin = createAdminClient()

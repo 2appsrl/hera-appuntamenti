@@ -26,6 +26,8 @@ export const NEGATIVE_REASON_ORDER: NegativeReason[] = [
   'altro',
 ]
 
+export const MAX_NEGATIVE_NOTES_LEN = 500
+
 export type AgentType = 'agente' | 'sportello'
 
 export interface User {
