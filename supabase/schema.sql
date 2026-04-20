@@ -37,8 +37,14 @@ CREATE TABLE call_outcomes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
   outcome TEXT NOT NULL CHECK (outcome IN ('non_risponde', 'negativo', 'appuntamento')),
+  negative_reason TEXT CHECK (negative_reason IN ('gia_esitato','referente_diverso','anagrafica_doppia','gia_cliente','recapito_inesistente','altro')),
+  negative_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_call_outcomes_negative_reason
+  ON call_outcomes(negative_reason)
+  WHERE outcome = 'negativo';
 
 -- Appointments (only for outcome = 'appuntamento')
 CREATE TABLE appointments (
