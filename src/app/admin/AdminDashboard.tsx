@@ -4,7 +4,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
-import type { OutcomeSummary, DailyOutcomeSummary, OperatorSummary } from '@/lib/types'
+import { useState } from 'react'
+import { NEGATIVE_REASON_LABELS, NEGATIVE_REASON_ORDER } from '@/lib/types'
+import type { OutcomeSummary, DailyOutcomeSummary, OperatorSummary, NegativeBreakdown, NegativeNoteEntry } from '@/lib/types'
 
 const COLORS = { non_risponde: '#f97316', negativo: '#ef4444', appuntamento: '#22c55e' }
 
@@ -12,10 +14,14 @@ export default function AdminDashboard({
   dailyData,
   operatorSummaries,
   counts,
+  negativeBreakdown,
+  negativeNotes,
 }: {
   dailyData: DailyOutcomeSummary[]
   operatorSummaries: OperatorSummary[]
   counts: OutcomeSummary
+  negativeBreakdown: NegativeBreakdown
+  negativeNotes: NegativeNoteEntry[]
 }) {
   const total = counts.non_risponde + counts.negativo + counts.appuntamento
   const pieData = [
@@ -23,6 +29,24 @@ export default function AdminDashboard({
     { name: 'Negativi', value: counts.negativo, color: COLORS.negativo },
     { name: 'Appuntamenti', value: counts.appuntamento, color: COLORS.appuntamento },
   ].filter(d => d.value > 0)
+
+  const totalNegativi = counts.negativo
+  const breakdownRows = [
+    ...NEGATIVE_REASON_ORDER.map(r => ({
+      key: r as string,
+      label: NEGATIVE_REASON_LABELS[r],
+      count: negativeBreakdown[r] || 0,
+    })),
+    ...((negativeBreakdown.nd || 0) > 0
+      ? [{ key: 'nd', label: 'N.D. (storici)', count: negativeBreakdown.nd || 0 }]
+      : []),
+  ]
+    .filter(r => r.count > 0)
+    .sort((a, b) => b.count - a.count)
+
+  const maxBreakdown = breakdownRows[0]?.count || 1
+  const [showAllNotes, setShowAllNotes] = useState(false)
+  const visibleNotes = showAllNotes ? negativeNotes : negativeNotes.slice(0, 10)
 
   return (
     <div className="space-y-6">
@@ -42,6 +66,72 @@ export default function AdminDashboard({
               <Line type="monotone" dataKey="appuntamento" name="Appuntamenti" stroke={COLORS.appuntamento} strokeWidth={2.5} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {totalNegativi > 0 && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Dettaglio negativi</h3>
+            <span className="text-xs text-gray-400">
+              {totalNegativi} totali
+              {(negativeBreakdown.nd || 0) > 0 && ` · ${negativeBreakdown.nd} N.D.`}
+            </span>
+          </div>
+
+          {/* Breakdown */}
+          <div className="space-y-2">
+            {breakdownRows.map(row => {
+              const pct = totalNegativi > 0 ? Math.round((row.count / totalNegativi) * 100) : 0
+              const widthPct = (row.count / maxBreakdown) * 100
+              return (
+                <div key={row.key} className="flex items-center gap-3">
+                  <span className="w-48 text-sm text-gray-700 truncate" title={row.label}>{row.label}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-3 rounded-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500"
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </div>
+                  <span className="w-16 text-right text-sm font-semibold text-gray-900">{row.count}</span>
+                  <span className="w-12 text-right text-xs text-gray-400">{pct}%</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Ultime note */}
+          {negativeNotes.length > 0 && (
+            <div className="pt-4 border-t border-gray-100">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Note ({negativeNotes.length})</h4>
+              <div className="space-y-2">
+                {visibleNotes.map(n => (
+                  <div key={n.id} className="bg-gray-50 rounded-lg p-3 text-sm">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                      <span>{new Date(n.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}</span>
+                      <span>·</span>
+                      <span className="font-medium text-gray-700">{n.operator_name}</span>
+                      {n.reason && (
+                        <>
+                          <span>·</span>
+                          <span className="italic">{NEGATIVE_REASON_LABELS[n.reason as keyof typeof NEGATIVE_REASON_LABELS] || n.reason}</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-gray-800 whitespace-pre-wrap break-words">{n.notes}</p>
+                  </div>
+                ))}
+              </div>
+              {negativeNotes.length > 10 && (
+                <button
+                  onClick={() => setShowAllNotes(v => !v)}
+                  className="mt-3 text-xs font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+                >
+                  {showAllNotes ? 'Mostra meno' : `Mostra tutte (${negativeNotes.length})`}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
