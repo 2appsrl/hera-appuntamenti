@@ -85,6 +85,29 @@ export default async function AdminPage({
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
   outcomes?.forEach(o => { counts[o.outcome as keyof OutcomeSummary]++ })
 
+  // Breakdown negativi per motivo (null = N.D.)
+  const negativeBreakdown: Record<string, number> = {}
+  outcomes?.forEach(o => {
+    if (o.outcome !== 'negativo') return
+    const key = o.negative_reason ?? 'nd'
+    negativeBreakdown[key] = (negativeBreakdown[key] || 0) + 1
+  })
+
+  // Ultime note negativi (con testo non vuoto), ordinate desc
+  const negativeNotesList = (outcomes || [])
+    .filter(o => o.outcome === 'negativo' && o.negative_notes && o.negative_notes.trim().length > 0)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map(o => {
+      const op = operators?.find(u => u.id === o.user_id)
+      return {
+        id: o.id,
+        created_at: o.created_at,
+        operator_name: op?.name || 'Sconosciuto',
+        reason: o.negative_reason as string | null,
+        notes: o.negative_notes as string,
+      }
+    })
+
   // Calculate per-operator summary
   const operatorMap = new Map<string, { user_name: string; non_risponde: number; negativo: number; appuntamento: number }>()
   outcomes?.forEach(o => {
@@ -146,6 +169,8 @@ export default async function AdminPage({
           dailyData={dailyData}
           operatorSummaries={operatorSummaries}
           counts={counts}
+          negativeBreakdown={negativeBreakdown}
+          negativeNotes={negativeNotesList}
         />
         <div className="flex justify-end">
           <a href="/admin/gestione"

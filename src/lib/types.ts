@@ -124,6 +124,18 @@ export interface OperatorSummary extends OutcomeSummary {
   appointment_outcomes: AppointmentOutcomeSummary
 }
 
+export interface NegativeBreakdown {
+  [key: string]: number  // chiave = NegativeReason | 'nd'
+}
+
+export interface NegativeNoteEntry {
+  id: string
+  created_at: string
+  operator_name: string
+  reason: string | null
+  notes: string
+}
+
 export type AppointmentOutcomeType = 'positivo' | 'negativo' | 'non_presentato'
 
 export interface AppointmentOutcome {
