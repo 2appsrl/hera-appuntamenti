@@ -26,6 +26,7 @@ export default async function OperatorePage() {
   // Run all queries in parallel for fast page load
   const today = getRomeToday()
   const firstOfMonth = getRomeFirstOfMonth()
+  const currentMonth = today.slice(0, 7)
   const todayRange = romeDayUTCRange(today)
   const monthStart = romeDayUTCRange(firstOfMonth).fromUTC
 
@@ -38,6 +39,7 @@ export default async function OperatorePage() {
     { data: todaySessions },
     { data: allAppointments },
     { count: monthlyCallCountResult },
+    { data: campaignEntriesData },
   ] = await Promise.all([
     supabase
       .from('call_outcomes')
@@ -86,7 +88,19 @@ export default async function OperatorePage() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .gte('created_at', monthStart),
+    // Nominativi assegnati all'operatrice nel mese corrente (RLS solo superadmin)
+    createAdminClient()
+      .from('campaign_entries')
+      .select('count')
+      .eq('user_id', user.id)
+      .eq('month', currentMonth),
   ])
+
+  const nominativiThisMonth = (campaignEntriesData || []).reduce(
+    (sum: number, e: { count: number }) => sum + (e.count ?? 0),
+    0,
+  )
+  const salesforceCallTarget = Math.ceil(nominativiThisMonth * 0.15)
 
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
   outcomes?.forEach(o => { counts[o.outcome as keyof OutcomeSummary]++ })
@@ -120,6 +134,8 @@ export default async function OperatorePage() {
           }
           monthlyCallCount={monthlyCallCountResult ?? 0}
           monthlyCallLimit={profile.monthly_call_limit ?? null}
+          nominativiThisMonth={nominativiThisMonth}
+          salesforceCallTarget={salesforceCallTarget}
         />
       </main>
     </div>
