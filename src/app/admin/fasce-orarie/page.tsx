@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import TimeSlotClient from './TimeSlotClient'
 import { getRomeToday, romeRangeUTC, utcToRomeHour } from '@/lib/dates'
+import { fetchAllPaginated } from '@/lib/supabase/pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,18 +68,15 @@ export default async function FasceOrariePage({
     .eq('role', 'operatore')
     .order('name')
 
-  // Fetch outcomes with timestamp
-  let q = admin
-    .from('call_outcomes')
-    .select('outcome, created_at, user_id')
-
-  if (dateFrom && dateTo) {
-    const range = romeRangeUTC(dateFrom, dateTo)
-    q = q.gte('created_at', range.fromUTC).lte('created_at', range.toUTC)
-  }
-  if (params.operator) q = q.eq('user_id', params.operator)
-
-  const { data: outcomes } = await q
+  // Fetch outcomes with timestamp (paginated to bypass 1000-row response cap)
+  const range = dateFrom && dateTo ? romeRangeUTC(dateFrom, dateTo) : null
+  type SlotOutcomeRow = { outcome: string; created_at: string; user_id: string }
+  const outcomes = await fetchAllPaginated<SlotOutcomeRow>(() => {
+    let q = admin.from('call_outcomes').select('outcome, created_at, user_id')
+    if (range) q = q.gte('created_at', range.fromUTC).lte('created_at', range.toUTC)
+    if (params.operator) q = q.eq('user_id', params.operator)
+    return q
+  })
 
   // Group by time slot (Italian local hour, not server local)
   const slotDataMap = new Map<string, { non_risponde: number; negativo: number; appuntamento: number }>()

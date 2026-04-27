@@ -8,6 +8,7 @@ import SummaryCards from '@/components/SummaryCards'
 import AdminDashboard from './AdminDashboard'
 import type { OutcomeSummary } from '@/lib/types'
 import { getRomeToday, romeRangeUTC, utcToRomeDate } from '@/lib/dates'
+import { fetchAllPaginated } from '@/lib/supabase/pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,40 +57,33 @@ export default async function AdminPage({
   // Filter range expressed as UTC instants covering the full Italian day(s).
   const range = dateFrom && dateTo ? romeRangeUTC(dateFrom, dateTo) : null
 
-  // Build call_outcomes query with filters
-  let outcomesQuery = admin
-    .from('call_outcomes')
-    .select('*')
-
-  if (range) {
-    outcomesQuery = outcomesQuery
-      .gte('created_at', range.fromUTC)
-      .lte('created_at', range.toUTC)
+  // Paginated fetch — bypasses Supabase's default 1000-row response cap so
+  // wide ranges ("Mese", "Tutti") return every matching outcome.
+  type OutcomeRow = {
+    id: string
+    user_id: string
+    outcome: string
+    negative_reason: string | null
+    negative_notes: string | null
+    created_at: string
   }
+  const outcomes = await fetchAllPaginated<OutcomeRow>(() => {
+    let q = admin.from('call_outcomes').select('*')
+    if (range) q = q.gte('created_at', range.fromUTC).lte('created_at', range.toUTC)
+    if (params.operator) q = q.eq('user_id', params.operator)
+    return q
+  })
 
-  if (params.operator) {
-    outcomesQuery = outcomesQuery.eq('user_id', params.operator)
-  }
-
-  const { data: outcomes } = await outcomesQuery
-
-  // Fetch call sessions for the period
-  let sessionsQuery = admin
-    .from('call_sessions')
-    .select('user_id, started_at, ended_at')
-    .not('ended_at', 'is', null)
-
-  if (range) {
-    sessionsQuery = sessionsQuery
-      .gte('started_at', range.fromUTC)
-      .lte('started_at', range.toUTC)
-  }
-
-  if (params.operator) {
-    sessionsQuery = sessionsQuery.eq('user_id', params.operator)
-  }
-
-  const { data: callSessions } = await sessionsQuery
+  type SessionRow = { user_id: string; started_at: string; ended_at: string | null }
+  const callSessions = await fetchAllPaginated<SessionRow>(() => {
+    let q = admin
+      .from('call_sessions')
+      .select('user_id, started_at, ended_at')
+      .not('ended_at', 'is', null)
+    if (range) q = q.gte('started_at', range.fromUTC).lte('started_at', range.toUTC)
+    if (params.operator) q = q.eq('user_id', params.operator)
+    return q
+  })
 
   // Calculate summary
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
