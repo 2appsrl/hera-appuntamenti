@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAppointmentAgent, deleteAppointment } from '../actions'
+import { getRomeToday, getRomeFirstOfMonth } from '@/lib/dates'
 
 const OUTCOME_LABELS: Record<string, { label: string; badge: string }> = {
   positivo: { label: 'Positivo', badge: 'bg-emerald-50 text-emerald-700' },
@@ -79,8 +80,8 @@ export default function AppointmentsPageClient({
   const [agentId, setAgentId] = useState(initialAgent)
   const [operatorId, setOperatorId] = useState(initialOperator)
 
-  const today = new Date().toISOString().split('T')[0]
-  const firstOfMonth = today.slice(0, 8) + '01'
+  const today = getRomeToday()
+  const firstOfMonth = getRomeFirstOfMonth()
 
   // Determine which quick filter is active based on server-resolved dates
   const activeQuick = initialFrom === '' && initialTo === '' ? 'tutti'
@@ -197,7 +198,7 @@ export default function AppointmentsPageClient({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `appuntamenti-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `appuntamenti-${getRomeToday()}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }

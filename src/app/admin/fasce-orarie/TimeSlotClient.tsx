@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getRomeToday, getRomeFirstOfMonth } from '@/lib/dates'
 
 interface SlotData {
   label: string
@@ -47,8 +48,8 @@ export default function TimeSlotClient({
   const [dateTo, setDateTo] = useState(initialTo)
   const [operatorId, setOperatorId] = useState(initialOperator)
 
-  const today = new Date().toISOString().split('T')[0]
-  const firstOfMonth = today.slice(0, 8) + '01'
+  const today = getRomeToday()
+  const firstOfMonth = getRomeFirstOfMonth()
 
   function navigate(from: string, to: string, op?: string) {
     const params = new URLSearchParams()

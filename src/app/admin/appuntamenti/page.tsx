@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import AppointmentsPageClient from './AppointmentsPageClient'
+import { getRomeToday } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export default async function AppuntamentiPage({
   }
 
   // Default: today (unless explicitly set to empty via "Tutti" filter)
-  const today = new Date().toISOString().split('T')[0]
+  const today = getRomeToday()
   const showAll = 'from' in params && params.from === ''
   const dateFrom = showAll ? '' : (params.from || today)
   const dateTo = showAll ? '' : (params.to || today)

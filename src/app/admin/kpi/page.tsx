@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import KpiPageClient from './KpiPageClient'
+import { getRomeToday, romeRangeUTC } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,13 +55,14 @@ export default async function KpiPage({
     redirect(profile?.role === 'agente' ? '/agente' : profile?.role === 'operatore' ? '/operatore' : '/login')
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getRomeToday()
   const currentMonth = today.slice(0, 7)
   const selectedMonth = params.month || currentMonth
   const firstOfMonth = `${selectedMonth}-01`
   const [y, m] = selectedMonth.split('-').map(Number)
   const lastDay = new Date(y, m, 0).getDate()
   const lastOfMonth = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
+  const monthRange = romeRangeUTC(firstOfMonth, lastOfMonth)
 
   const admin = createAdminClient()
 
@@ -68,8 +70,8 @@ export default async function KpiPage({
   let callQuery = admin
     .from('call_outcomes')
     .select('user_id')
-    .gte('created_at', `${firstOfMonth}T00:00:00`)
-    .lte('created_at', `${lastOfMonth}T23:59:59`)
+    .gte('created_at', monthRange.fromUTC)
+    .lte('created_at', monthRange.toUTC)
 
   let apptQuery = admin
     .from('appointments')

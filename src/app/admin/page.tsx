@@ -7,6 +7,7 @@ import Filters from '@/components/Filters'
 import SummaryCards from '@/components/SummaryCards'
 import AdminDashboard from './AdminDashboard'
 import type { OutcomeSummary } from '@/lib/types'
+import { getRomeToday, romeRangeUTC, utcToRomeDate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ export default async function AdminPage({
   }
 
   // Default date range: today (unless explicitly set to empty via "Tutti" filter)
-  const today = new Date().toISOString().split('T')[0]
+  const today = getRomeToday()
   const showAll = 'from' in params && params.from === ''
   const dateFrom = showAll ? '' : (params.from || today)
   const dateTo = showAll ? '' : (params.to || today)
@@ -52,13 +53,19 @@ export default async function AdminPage({
     .select('id, name, type, address')
     .order('name')
 
+  // Filter range expressed as UTC instants covering the full Italian day(s).
+  const range = dateFrom && dateTo ? romeRangeUTC(dateFrom, dateTo) : null
+
   // Build call_outcomes query with filters
   let outcomesQuery = admin
     .from('call_outcomes')
     .select('*')
 
-  if (dateFrom) outcomesQuery = outcomesQuery.gte('created_at', `${dateFrom}T00:00:00`)
-  if (dateTo) outcomesQuery = outcomesQuery.lte('created_at', `${dateTo}T23:59:59`)
+  if (range) {
+    outcomesQuery = outcomesQuery
+      .gte('created_at', range.fromUTC)
+      .lte('created_at', range.toUTC)
+  }
 
   if (params.operator) {
     outcomesQuery = outcomesQuery.eq('user_id', params.operator)
@@ -72,8 +79,11 @@ export default async function AdminPage({
     .select('user_id, started_at, ended_at')
     .not('ended_at', 'is', null)
 
-  if (dateFrom) sessionsQuery = sessionsQuery.gte('started_at', `${dateFrom}T00:00:00`)
-  if (dateTo) sessionsQuery = sessionsQuery.lte('started_at', `${dateTo}T23:59:59`)
+  if (range) {
+    sessionsQuery = sessionsQuery
+      .gte('started_at', range.fromUTC)
+      .lte('started_at', range.toUTC)
+  }
 
   if (params.operator) {
     sessionsQuery = sessionsQuery.eq('user_id', params.operator)
@@ -143,10 +153,10 @@ export default async function AdminPage({
     }
   })
 
-  // Calculate daily data for charts
+  // Calculate daily data for charts (bucket by Italian local date, not UTC)
   const dailyMap = new Map<string, OutcomeSummary>()
   outcomes?.forEach(o => {
-    const date = o.created_at.split('T')[0]
+    const date = utcToRomeDate(o.created_at)
     if (!dailyMap.has(date)) {
       dailyMap.set(date, { non_risponde: 0, negativo: 0, appuntamento: 0 })
     }

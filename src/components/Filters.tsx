@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import type { User, Agent } from '@/lib/types'
+import { getRomeToday, getRomeFirstOfMonth } from '@/lib/dates'
 
 export default function Filters({
   operators,
@@ -19,8 +20,8 @@ export default function Filters({
   const [operatorId, setOperatorId] = useState(searchParams.get('operator') || '')
   const [agentId, setAgentId] = useState(searchParams.get('agent') || '')
 
-  const today = new Date().toISOString().split('T')[0]
-  const firstOfMonth = today.slice(0, 8) + '01'
+  const today = getRomeToday()
+  const firstOfMonth = getRomeFirstOfMonth()
 
   // Determine which quick filter is active based on URL params
   const urlFrom = searchParams.get('from')

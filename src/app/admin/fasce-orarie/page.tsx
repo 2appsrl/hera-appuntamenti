@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import TimeSlotClient from './TimeSlotClient'
+import { getRomeToday, romeRangeUTC, utcToRomeHour } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +53,7 @@ export default async function FasceOrariePage({
     redirect(profile?.role === 'agente' ? '/agente' : profile?.role === 'operatore' ? '/operatore' : '/login')
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getRomeToday()
   const showAll = 'from' in params && params.from === ''
   const dateFrom = showAll ? '' : (params.from || today.slice(0, 8) + '01')
   const dateTo = showAll ? '' : (params.to || today)
@@ -71,18 +72,20 @@ export default async function FasceOrariePage({
     .from('call_outcomes')
     .select('outcome, created_at, user_id')
 
-  if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00`)
-  if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59`)
+  if (dateFrom && dateTo) {
+    const range = romeRangeUTC(dateFrom, dateTo)
+    q = q.gte('created_at', range.fromUTC).lte('created_at', range.toUTC)
+  }
   if (params.operator) q = q.eq('user_id', params.operator)
 
   const { data: outcomes } = await q
 
-  // Group by time slot
+  // Group by time slot (Italian local hour, not server local)
   const slotDataMap = new Map<string, { non_risponde: number; negativo: number; appuntamento: number }>()
   TIME_SLOTS.forEach(s => slotDataMap.set(s.label, { non_risponde: 0, negativo: 0, appuntamento: 0 }))
 
   outcomes?.forEach(o => {
-    const hour = new Date(o.created_at).getHours()
+    const hour = utcToRomeHour(o.created_at)
     const slot = TIME_SLOTS.find(s => hour >= s.start && hour < s.end)
     if (slot) {
       const data = slotDataMap.get(slot.label)!
@@ -105,10 +108,10 @@ export default async function FasceOrariePage({
     }
   }).filter(s => s.total > 0)
 
-  // Per-operator breakdown
+  // Per-operator breakdown (Italian local hour)
   const operatorSlotMap = new Map<string, Map<string, { non_risponde: number; negativo: number; appuntamento: number }>>()
   outcomes?.forEach(o => {
-    const hour = new Date(o.created_at).getHours()
+    const hour = utcToRomeHour(o.created_at)
     const slot = TIME_SLOTS.find(s => hour >= s.start && hour < s.end)
     if (!slot) return
 
