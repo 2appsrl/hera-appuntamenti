@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import AppointmentsPageClient from './AppointmentsPageClient'
+import { getRomeToday } from '@/lib/dates'
+import { fetchAllPaginated } from '@/lib/supabase/pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +29,7 @@ export default async function AppuntamentiPage({
   }
 
   // Default: today (unless explicitly set to empty via "Tutti" filter)
-  const today = new Date().toISOString().split('T')[0]
+  const today = getRomeToday()
   const showAll = 'from' in params && params.from === ''
   const dateFrom = showAll ? '' : (params.from || today)
   const dateTo = showAll ? '' : (params.to || today)
@@ -35,12 +37,17 @@ export default async function AppuntamentiPage({
   // Use admin client to bypass RLS — user is already verified as superadmin above
   const admin = createAdminClient()
 
-  // Parallel queries — fetch appointments WITHOUT joins to avoid filtering issues
+  // Parallel queries — fetch appointments WITHOUT joins to avoid filtering issues.
+  // Paginate the unbounded ones to bypass the 1000-row response cap.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type AnyAppointment = Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type AnyOutcome = Record<string, any>
   const [
     { data: agents },
     { data: operators },
-    { data: rawAppointments },
-    { data: outcomes },
+    rawAppointments,
+    outcomes,
   ] = await Promise.all([
     admin
       .from('agents')
@@ -51,7 +58,7 @@ export default async function AppuntamentiPage({
       .select('id, name')
       .eq('role', 'operatore')
       .order('name'),
-    (() => {
+    fetchAllPaginated<AnyAppointment>(() => {
       let q = admin
         .from('appointments')
         .select('*')
@@ -64,10 +71,8 @@ export default async function AppuntamentiPage({
       if (params.operator) q = q.eq('user_id', params.operator)
 
       return q
-    })(),
-    admin
-      .from('appointment_outcomes')
-      .select('*'),
+    }),
+    fetchAllPaginated<AnyOutcome>(() => admin.from('appointment_outcomes').select('*')),
   ])
 
   // Build lookup maps

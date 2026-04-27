@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Header from '@/components/Header'
 import OperatorPageClient from './OperatorPageClient'
 import type { OutcomeSummary, AppointmentWithAgent, AppointmentWithAgentAndOutcome } from '@/lib/types'
+import { getRomeToday, getRomeFirstOfMonth, romeDayUTCRange } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,8 +24,10 @@ export default async function OperatorePage() {
   }
 
   // Run all queries in parallel for fast page load
-  const today = new Date().toISOString().split('T')[0]
-  const firstOfMonth = today.slice(0, 8) + '01'
+  const today = getRomeToday()
+  const firstOfMonth = getRomeFirstOfMonth()
+  const todayRange = romeDayUTCRange(today)
+  const monthStart = romeDayUTCRange(firstOfMonth).fromUTC
 
   const [
     { data: outcomes },
@@ -40,8 +43,8 @@ export default async function OperatorePage() {
       .from('call_outcomes')
       .select('outcome')
       .eq('user_id', user.id)
-      .gte('created_at', `${today}T00:00:00`)
-      .lte('created_at', `${today}T23:59:59`),
+      .gte('created_at', todayRange.fromUTC)
+      .lte('created_at', todayRange.toUTC),
     supabase
       .from('appointments')
       .select('*, agents(name, type)')
@@ -67,7 +70,8 @@ export default async function OperatorePage() {
       .from('call_sessions')
       .select('started_at, ended_at')
       .eq('user_id', user.id)
-      .gte('started_at', `${today}T00:00:00`)
+      .gte('started_at', todayRange.fromUTC)
+      .lte('started_at', todayRange.toUTC)
       .not('ended_at', 'is', null),
     // Use admin client to bypass RLS for reading appointment outcomes
     createAdminClient()
@@ -81,7 +85,7 @@ export default async function OperatorePage() {
       .from('call_outcomes')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .gte('created_at', `${firstOfMonth}T00:00:00`),
+      .gte('created_at', monthStart),
   ])
 
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
