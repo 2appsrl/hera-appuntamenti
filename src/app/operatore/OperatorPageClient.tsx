@@ -25,6 +25,8 @@ export default function OperatorPageClient({
   todayMinutesWorked,
   monthlyCallCount,
   monthlyCallLimit,
+  nominativiThisMonth,
+  salesforceCallTarget,
 }: {
   agents: Pick<Agent, 'id' | 'name' | 'type' | 'address'>[]
   availability: AgentAvailability[]
@@ -35,6 +37,8 @@ export default function OperatorPageClient({
   todayMinutesWorked: number
   monthlyCallCount: number
   monthlyCallLimit: number | null
+  nominativiThisMonth: number
+  salesforceCallTarget: number
 }) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
@@ -52,22 +56,35 @@ export default function OperatorPageClient({
     setCounts(initialCounts)
   }, [initialCounts])
 
-  // Monthly call limit tracking
+  // Salesforce 15% target tracking. The persistent banner is shown whenever
+  // the target is reached; the modal pops on every page load (state init) and
+  // again the moment the threshold is crossed mid-session. Closing the modal
+  // dismisses only it — the banner stays.
   const [monthlyCount, setMonthlyCount] = useState(monthlyCallCount)
+  const alertReached =
+    (salesforceCallTarget > 0 && monthlyCount >= salesforceCallTarget) ||
+    (!!monthlyCallLimit && monthlyCount >= monthlyCallLimit)
   const [showLimitAlert, setShowLimitAlert] = useState(
-    !!(monthlyCallLimit && monthlyCallCount >= monthlyCallLimit)
+    (salesforceCallTarget > 0 && monthlyCallCount >= salesforceCallTarget) ||
+      !!(monthlyCallLimit && monthlyCallCount >= monthlyCallLimit)
   )
 
   // Called by OutcomeButtons for instant UI update
   function handleOptimisticOutcome(outcome: keyof OutcomeSummary) {
     setCounts(prev => ({ ...prev, [outcome]: prev[outcome] + 1 }))
-    if (monthlyCallLimit) {
-      setMonthlyCount(prev => {
-        const newCount = prev + 1
-        if (newCount >= monthlyCallLimit) setShowLimitAlert(true)
-        return newCount
-      })
-    }
+    setMonthlyCount(prev => {
+      const newCount = prev + 1
+      const crossedSalesforce =
+        salesforceCallTarget > 0 &&
+        prev < salesforceCallTarget &&
+        newCount >= salesforceCallTarget
+      const crossedLegacy =
+        !!monthlyCallLimit &&
+        prev < monthlyCallLimit &&
+        newCount >= monthlyCallLimit
+      if (crossedSalesforce || crossedLegacy) setShowLimitAlert(true)
+      return newCount
+    })
   }
 
   // Timer for active session
@@ -170,7 +187,7 @@ export default function OperatorPageClient({
 
   return (
     <>
-      {/* Monthly limit alert modal */}
+      {/* Salesforce target alert modal — pops every page load when reached */}
       {showLimitAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
@@ -181,15 +198,23 @@ export default function OperatorPageClient({
                 </svg>
               </div>
               <h2 className="text-2xl font-black text-white leading-tight">
-                Numero Esiti massimi raggiunto!!!
+                Stop esiti su Salesforce Hera
               </h2>
+              <p className="text-red-50 text-sm mt-2 font-medium">
+                Hai raggiunto il 15% dei nominativi del mese
+              </p>
             </div>
             <div className="p-8 text-center space-y-6">
-              <p className="text-gray-800 font-bold text-lg leading-relaxed">
-                Continua a chiamare ma non esitare più su Salesforce,<br />
-                continua ad esitare su questo programma
+              <p className="text-gray-900 font-extrabold text-xl leading-snug">
+                Continua a mettere esiti qui ma<br />
+                <span className="text-red-600">NON METTERE PIÙ ESITI<br />SU SALESFORCE HERA</span>
               </p>
-              {monthlyCallLimit && (
+              {salesforceCallTarget > 0 ? (
+                <div className="bg-red-50 rounded-2xl px-6 py-3 inline-block">
+                  <span className="text-red-600 font-bold text-xl">{monthlyCount}</span>
+                  <span className="text-red-400 text-sm font-medium"> / {salesforceCallTarget} chiamate (15% di {nominativiThisMonth})</span>
+                </div>
+              ) : monthlyCallLimit && (
                 <div className="bg-red-50 rounded-2xl px-6 py-3 inline-block">
                   <span className="text-red-600 font-bold text-xl">{monthlyCount}</span>
                   <span className="text-red-400 text-sm font-medium"> / {monthlyCallLimit} esiti questo mese</span>
@@ -199,9 +224,36 @@ export default function OperatorPageClient({
                 onClick={() => setShowLimitAlert(false)}
                 className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-8 rounded-2xl text-lg transition-all shadow-lg hover:shadow-xl cursor-pointer"
               >
-                Ho capito, continuo a chiamare
+                Ho capito, continuo a chiamare qui
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Persistent Salesforce-stop banner — stays in the outcomes screen
+          even after the modal is dismissed, until end of month / DB resets. */}
+      {alertReached && (
+        <div className="rounded-2xl overflow-hidden border-2 border-red-300 shadow-[0_8px_30px_rgba(239,68,68,0.18)]">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-5 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-white font-black text-sm uppercase tracking-wide">Stop Salesforce Hera</div>
+              {salesforceCallTarget > 0 && (
+                <div className="text-red-50 text-xs font-medium">
+                  {monthlyCount} / {salesforceCallTarget} chiamate (15% di {nominativiThisMonth} nominativi)
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="bg-red-50 px-5 py-3">
+            <p className="text-red-900 font-bold text-sm leading-snug">
+              Continua a mettere esiti qui ma <span className="underline decoration-2">NON METTERE PIÙ ESITI SU SALESFORCE HERA</span>.
+            </p>
           </div>
         </div>
       )}
