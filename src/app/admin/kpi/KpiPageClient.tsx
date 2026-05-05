@@ -234,6 +234,7 @@ export default function KpiPageClient({
                   <th className="px-5 py-3 font-semibold text-gray-500 text-right">Nominativi</th>
                   <th className="px-5 py-3 font-semibold text-gray-500">Chiamate (15%)</th>
                   <th className="px-5 py-3 font-semibold text-gray-500">Contratti (3.5%)</th>
+                  <th className="px-3 py-3 font-semibold text-gray-500 text-center">App.ti</th>
                   <th className="px-3 py-3 font-semibold text-gray-500 text-center">Azioni</th>
                 </tr>
               </thead>
@@ -316,6 +317,17 @@ export default function KpiPageClient({
                           </div>
                           <ProgressBar value={op.contrattiChiusi} max={op.targetContratti} size="sm" />
                         </div>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Appuntamenti fissati nel mese (count su appointment_date) */}
+                    <td className="px-3 py-4 text-center">
+                      {op.appuntamentiFissati > 0 ? (
+                        <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold">
+                          {op.appuntamentiFissati}
+                        </span>
                       ) : (
                         <span className="text-gray-300 text-xs">—</span>
                       )}

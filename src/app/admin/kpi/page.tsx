@@ -24,6 +24,7 @@ export interface OperatorKpi {
   targetContratti: number
   chiamateFatte: number
   contrattiChiusi: number
+  appuntamentiFissati: number
   entries: CampaignEntry[]
 }
 
@@ -33,6 +34,7 @@ export interface KpiTotals {
   targetContratti: number
   chiamateFatte: number
   contrattiChiusi: number
+  appuntamentiFissati: number
 }
 
 export default async function KpiPage({
@@ -91,20 +93,28 @@ export default async function KpiPage({
     ? (operators || []).filter(o => o.id === params.operator)
     : (operators || [])
 
-  // Per-operator chiamate count via SQL COUNT (avoids the 1000-row default
-  // limit that silently truncates large months and drops recent outcomes).
-  const callCountEntries = await Promise.all(
+  // Per-operator chiamate + appuntamenti via SQL COUNT (avoids the 1000-row
+  // default limit that silently truncates large months).
+  const perOperatorCounts = await Promise.all(
     operatorList.map(async op => {
-      const { count } = await admin
-        .from('call_outcomes')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', op.id)
-        .gte('created_at', monthRange.fromUTC)
-        .lte('created_at', monthRange.toUTC)
-      return [op.id, count ?? 0] as const
+      const [{ count: callCount }, { count: apptCount }] = await Promise.all([
+        admin
+          .from('call_outcomes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', op.id)
+          .gte('created_at', monthRange.fromUTC)
+          .lte('created_at', monthRange.toUTC),
+        admin
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', op.id)
+          .gte('appointment_date', firstOfMonth)
+          .lte('appointment_date', lastOfMonth),
+      ])
+      return [op.id, { calls: callCount ?? 0, appts: apptCount ?? 0 }] as const
     })
   )
-  const callCountMap = new Map<string, number>(callCountEntries)
+  const countMap = new Map<string, { calls: number; appts: number }>(perOperatorCounts)
 
   const operatorStats: OperatorKpi[] = operatorList.map(({ id: opId, name }) => {
     const nominativi = (campaignEntries || [])
@@ -112,7 +122,9 @@ export default async function KpiPage({
       .reduce((sum: number, e: CampaignEntry) => sum + e.count, 0)
     const targetChiamate = Math.ceil(nominativi * 0.15)
     const targetContratti = Math.ceil(targetChiamate * 0.035)
-    const chiamateFatte = callCountMap.get(opId) ?? 0
+    const counts = countMap.get(opId)
+    const chiamateFatte = counts?.calls ?? 0
+    const appuntamentiFissati = counts?.appts ?? 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const contrattiChiusi = (appointmentData || []).filter((a: any) => {
       if (a.user_id !== opId) return false
@@ -134,6 +146,7 @@ export default async function KpiPage({
       targetContratti,
       chiamateFatte,
       contrattiChiusi,
+      appuntamentiFissati,
       entries,
     }
   })
@@ -144,6 +157,7 @@ export default async function KpiPage({
     targetContratti: operatorStats.reduce((s, o) => s + o.targetContratti, 0),
     chiamateFatte: operatorStats.reduce((s, o) => s + o.chiamateFatte, 0),
     contrattiChiusi: operatorStats.reduce((s, o) => s + o.contrattiChiusi, 0),
+    appuntamentiFissati: operatorStats.reduce((s, o) => s + o.appuntamentiFissati, 0),
   }
 
   return (
