@@ -6,13 +6,33 @@ import { revalidatePath } from 'next/cache'
 import { MAX_NEGATIVE_NOTES_LEN } from '@/lib/types'
 import type { OutcomeType, NegativeReason } from '@/lib/types'
 
+// Server actions in this file write outcomes/appointments/sessions on behalf
+// of the caller. The page-level redirect protects only the UI; the actions
+// themselves must enforce role='operatore' so a non-operator session can't
+// produce phantom rows under their user_id (e.g. an agente account being
+// reused on a shared device).
+async function requireOperator(): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non autenticato')
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'operatore') {
+    throw new Error('Operazione consentita solo alle operatrici')
+  }
+  return { id: user.id }
+}
+
 export async function recordOutcome(
   outcome: OutcomeType,
   details?: { negativeReason?: NegativeReason; negativeNotes?: string },
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  const { id: userId } = await requireOperator()
 
   // Validazione coerenza
   if (outcome === 'negativo') {
@@ -32,7 +52,7 @@ export async function recordOutcome(
   const { error } = await admin
     .from('call_outcomes')
     .insert({
-      user_id: user.id,
+      user_id: userId,
       outcome,
       negative_reason: outcome === 'negativo' ? details!.negativeReason : null,
       negative_notes: outcome === 'negativo' ? notesValue : null,
@@ -54,16 +74,14 @@ export async function createAppointment(formData: {
   location: string
   notes: string
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  const { id: userId } = await requireOperator()
 
   const admin = createAdminClient()
 
   // Create call outcome first
   const { data: outcome, error: outcomeError } = await admin
     .from('call_outcomes')
-    .insert({ user_id: user.id, outcome: 'appuntamento' as const })
+    .insert({ user_id: userId, outcome: 'appuntamento' as const })
     .select('id')
     .single()
 
@@ -74,7 +92,7 @@ export async function createAppointment(formData: {
     .from('appointments')
     .insert({
       call_outcome_id: outcome.id,
-      user_id: user.id,
+      user_id: userId,
       agent_id: formData.agentId,
       client_name: formData.clientName,
       client_surname: formData.clientSurname,
@@ -92,29 +110,25 @@ export async function createAppointment(formData: {
 }
 
 export async function startCallSession() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  const { id: userId } = await requireOperator()
 
   const admin = createAdminClient()
   const { error } = await admin
     .from('call_sessions')
-    .insert({ user_id: user.id })
+    .insert({ user_id: userId })
 
   if (error) throw new Error('Errore nell\'avvio sessione')
   revalidatePath('/operatore')
 }
 
 export async function stopCallSession() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  const { id: userId } = await requireOperator()
 
   const admin = createAdminClient()
   const { error } = await admin
     .from('call_sessions')
     .update({ ended_at: new Date().toISOString() })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .is('ended_at', null)
 
   if (error) throw new Error('Errore nella chiusura sessione')
@@ -134,9 +148,7 @@ export async function updateAppointment(
     notes: string
   }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  const { id: userId } = await requireOperator()
 
   const admin = createAdminClient()
 
@@ -145,7 +157,7 @@ export async function updateAppointment(
     .from('appointments')
     .select('id')
     .eq('id', appointmentId)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
 
   if (!existing) throw new Error('Appuntamento non trovato')
