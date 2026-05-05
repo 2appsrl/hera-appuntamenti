@@ -48,6 +48,21 @@ export default async function AdminPage({
     .eq('role', 'operatore')
     .order('name')
 
+  // Fetch all users (for resolving names of non-operatore user_ids that may
+  // appear in call_outcomes / appointments — superadmin-created test entries,
+  // operators whose role was changed, etc.)
+  const { data: allUsersRaw } = await admin
+    .from('users')
+    .select('id, name, role')
+  const userMap = new Map<string, { name: string; role: string }>(
+    (allUsersRaw || []).map(u => [u.id, { name: u.name, role: u.role }])
+  )
+  const resolveUserLabel = (id: string): string => {
+    const u = userMap.get(id)
+    if (!u) return 'Sconosciuto'
+    return u.role === 'operatore' ? u.name : `${u.name} · ${u.role}`
+  }
+
   // Fetch agents list (for filter dropdown + appointment reassignment)
   const { data: allAgents } = await admin
     .from('agents')
@@ -101,24 +116,20 @@ export default async function AdminPage({
   const negativeNotesList = (outcomes || [])
     .filter(o => o.outcome === 'negativo' && o.negative_notes && o.negative_notes.trim().length > 0)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map(o => {
-      const op = operators?.find(u => u.id === o.user_id)
-      return {
-        id: o.id,
-        created_at: o.created_at,
-        operator_name: op?.name || 'Sconosciuto',
-        reason: o.negative_reason as string | null,
-        notes: o.negative_notes as string,
-      }
-    })
+    .map(o => ({
+      id: o.id,
+      created_at: o.created_at,
+      operator_name: resolveUserLabel(o.user_id),
+      reason: o.negative_reason as string | null,
+      notes: o.negative_notes as string,
+    }))
 
   // Calculate per-operator summary
   const operatorMap = new Map<string, { user_name: string; non_risponde: number; negativo: number; appuntamento: number }>()
   outcomes?.forEach(o => {
     if (!operatorMap.has(o.user_id)) {
-      const op = operators?.find(op => op.id === o.user_id)
       operatorMap.set(o.user_id, {
-        user_name: op?.name || 'Sconosciuto',
+        user_name: resolveUserLabel(o.user_id),
         non_risponde: 0, negativo: 0, appuntamento: 0
       })
     }
