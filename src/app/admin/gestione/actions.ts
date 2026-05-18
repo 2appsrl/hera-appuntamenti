@@ -7,24 +7,26 @@ import type { AgentType } from '@/lib/types'
 
 // --- Agent CRUD ---
 
-export async function createAgent(data: { name: string; type: AgentType; address?: string }) {
+export async function createAgent(data: { name: string; type: AgentType; address?: string; phone?: string }) {
   const admin = createAdminClient()
   const { error } = await admin.from('agents').insert({
     name: data.name,
     type: data.type,
     address: data.type === 'sportello' ? (data.address || null) : null,
+    phone: data.type === 'sportello' ? (data.phone?.trim() || null) : null,
   })
   if (error) throw new Error(error.message)
   revalidatePath('/admin/gestione')
 }
 
-export async function updateAgent(id: string, data: { name: string; type: AgentType; active: boolean; address?: string }) {
+export async function updateAgent(id: string, data: { name: string; type: AgentType; active: boolean; address?: string; phone?: string }) {
   const admin = createAdminClient()
   const { error } = await admin.from('agents').update({
     name: data.name,
     type: data.type,
     active: data.active,
     address: data.type === 'sportello' ? (data.address || null) : null,
+    phone: data.type === 'sportello' ? (data.phone?.trim() || null) : null,
   }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/gestione')

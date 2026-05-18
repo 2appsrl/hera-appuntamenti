@@ -18,10 +18,12 @@ export default function AgentManager({
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<AgentType>('agente')
   const [newAddress, setNewAddress] = useState('')
+  const [newPhone, setNewPhone] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editType, setEditType] = useState<AgentType>('agente')
   const [editAddress, setEditAddress] = useState('')
+  const [editPhone, setEditPhone] = useState('')
   const [credentialsForId, setCredentialsForId] = useState<string | null>(null)
   const [agentEmail, setAgentEmail] = useState('')
   const [agentPassword, setAgentPassword] = useState('')
@@ -32,9 +34,15 @@ export default function AgentManager({
     if (!newName.trim()) return
     setError('')
     try {
-      await createAgent({ name: newName, type: newType, address: newType === 'sportello' ? newAddress : undefined })
+      await createAgent({
+        name: newName,
+        type: newType,
+        address: newType === 'sportello' ? newAddress : undefined,
+        phone: newType === 'sportello' ? newPhone : undefined,
+      })
       setNewName('')
       setNewAddress('')
+      setNewPhone('')
       setShowNew(false)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Errore')
@@ -46,13 +54,20 @@ export default function AgentManager({
     setEditName(agent.name)
     setEditType(agent.type as AgentType)
     setEditAddress(agent.address || '')
+    setEditPhone(agent.phone || '')
   }
 
   async function handleEdit(agent: Agent) {
     if (!editName.trim()) return
     setError('')
     try {
-      await updateAgent(agent.id, { name: editName, type: editType, active: agent.active, address: editType === 'sportello' ? editAddress : undefined })
+      await updateAgent(agent.id, {
+        name: editName,
+        type: editType,
+        active: agent.active,
+        address: editType === 'sportello' ? editAddress : undefined,
+        phone: editType === 'sportello' ? editPhone : undefined,
+      })
       setEditingId(null)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Errore')
@@ -61,7 +76,13 @@ export default function AgentManager({
 
   async function handleToggleActive(agent: Agent) {
     try {
-      await updateAgent(agent.id, { name: agent.name, type: agent.type as AgentType, active: !agent.active, address: agent.address || undefined })
+      await updateAgent(agent.id, {
+        name: agent.name,
+        type: agent.type as AgentType,
+        active: !agent.active,
+        address: agent.address || undefined,
+        phone: agent.phone || undefined,
+      })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Errore')
     }
@@ -143,6 +164,13 @@ export default function AgentManager({
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all" placeholder="Via Roma 1, Milano" />
             </div>
           )}
+          {newType === 'sportello' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Telefono sportello</label>
+              <input value={newPhone} onChange={e => setNewPhone(e.target.value)} type="tel"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all" placeholder="+39 02 1234567" />
+            </div>
+          )}
           <button onClick={handleCreate} className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm cursor-pointer">Salva</button>
         </div>
       )}
@@ -163,6 +191,14 @@ export default function AgentManager({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     {agent.address}
+                  </span>
+                )}
+                {agent.type === 'sportello' && agent.phone && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    {agent.phone}
                   </span>
                 )}
                 {!agent.active && (
@@ -212,6 +248,13 @@ export default function AgentManager({
                     <label className="block text-xs font-medium text-gray-400 mb-1">Indirizzo sportello</label>
                     <input value={editAddress} onChange={e => setEditAddress(e.target.value)}
                       className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none" placeholder="Via Roma 1, Milano" />
+                  </div>
+                )}
+                {editType === 'sportello' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Telefono sportello</label>
+                    <input value={editPhone} onChange={e => setEditPhone(e.target.value)} type="tel"
+                      className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none" placeholder="+39 02 1234567" />
                   </div>
                 )}
                 <div className="flex gap-2">
