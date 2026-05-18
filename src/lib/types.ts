@@ -46,6 +46,8 @@ export interface Agent {
   active: boolean
   address: string | null
   phone: string | null
+  lat: number | null
+  lng: number | null
   user_id: string | null
   created_at: string
 }
@@ -149,4 +151,14 @@ export interface AppointmentOutcome {
 
 export interface AppointmentForAgent extends Appointment {
   appointment_outcomes: AppointmentOutcome | null
+}
+
+export interface AgencyResult {
+  osmId: string
+  name: string
+  address: string
+  phone: string | null
+  lat: number
+  lng: number
+  mapsUrl: string
 }
