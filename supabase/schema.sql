@@ -19,6 +19,8 @@ CREATE TABLE agents (
   active BOOLEAN DEFAULT TRUE,
   address TEXT,
   phone TEXT,
+  lat DOUBLE PRECISION,
+  lng DOUBLE PRECISION,
   user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
