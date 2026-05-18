@@ -18,6 +18,7 @@ CREATE TABLE agents (
   type TEXT NOT NULL CHECK (type IN ('agente', 'sportello')),
   active BOOLEAN DEFAULT TRUE,
   address TEXT,
+  phone TEXT,
   user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
