@@ -45,6 +45,7 @@ export interface Agent {
   type: AgentType
   active: boolean
   address: string | null
+  phone: string | null
   user_id: string | null
   created_at: string
 }
