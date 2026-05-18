@@ -36,6 +36,7 @@ export default function Header({ userName, role }: { userName: string; role: str
               <a href="/admin/appuntamenti" className="text-sm font-medium text-emerald-600 hover:text-emerald-800 transition-colors">Appuntamenti</a>
               <a href="/admin/fasce-orarie" className="text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors">Fasce Orarie</a>
               <a href="/admin/kpi" className="text-sm font-medium text-amber-600 hover:text-amber-800 transition-colors">KPI</a>
+              <a href="/admin/inviti" className="text-sm font-medium text-rose-600 hover:text-rose-800 transition-colors">Inviti</a>
             </>
           )}
           <button
