@@ -69,13 +69,16 @@ export default function InvitiPageClient({
       const bytes = Uint8Array.from(atob(result.pdfBase64), c => c.charCodeAt(0))
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `inviti-${new Date().toISOString().split('T')[0]}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      try {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `inviti-${new Date().toISOString().split('T')[0]}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } finally {
+        URL.revokeObjectURL(url)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Errore inatteso')
     } finally {
@@ -103,10 +106,11 @@ export default function InvitiPageClient({
           <button
             onClick={handleGenerate}
             disabled={loading || !anySelected}
+            aria-busy={loading}
             className="bg-rose-600 hover:bg-rose-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl text-sm shadow-sm transition-colors cursor-pointer inline-flex items-center gap-2"
           >
             {loading && (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
               </svg>
@@ -117,8 +121,8 @@ export default function InvitiPageClient({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl px-4 py-2.5 text-sm">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div role="alert" className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl px-4 py-2.5 text-sm">
+          <svg aria-hidden="true" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {error}
@@ -135,7 +139,13 @@ export default function InvitiPageClient({
             <thead>
               <tr className="border-b border-gray-100 text-left bg-gray-50/50">
                 <th className="px-5 py-3 w-10">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-rose-500 cursor-pointer" />
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Seleziona tutti gli agenti"
+                    className="accent-rose-500 cursor-pointer"
+                  />
                 </th>
                 <th className="px-5 py-3 font-semibold text-gray-500">Agente</th>
                 <th className="px-5 py-3 font-semibold text-gray-500">Sportello di riferimento</th>
@@ -151,6 +161,7 @@ export default function InvitiPageClient({
                         type="checkbox"
                         checked={row.selected}
                         onChange={e => setRow(a.id, { selected: e.target.checked })}
+                        aria-label={`Seleziona ${a.name}`}
                         className="accent-rose-500 cursor-pointer"
                       />
                     </td>
@@ -159,6 +170,7 @@ export default function InvitiPageClient({
                       <select
                         value={row.sportelloId}
                         onChange={e => setRow(a.id, { sportelloId: e.target.value })}
+                        aria-label={`Sportello di riferimento per ${a.name}`}
                         className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent min-w-[220px]"
                       >
                         <option value="">— scegli sportello —</option>
