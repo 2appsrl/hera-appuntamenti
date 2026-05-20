@@ -162,3 +162,14 @@ export interface AgencyResult {
   lng: number
   mapsUrl: string
 }
+
+export type CurrentListaInfo =
+  | { source: 'override'; target: number; count: number }
+  | {
+      source: 'lista'
+      target: number
+      count: number
+      listaCount: number       // nominativi della lista
+      listaCreatedAt: string   // ISO date
+    }
+  | { source: 'none' }
