@@ -60,7 +60,7 @@ export async function recordOutcome(
 
   if (error) throw new Error('Errore nel salvataggio')
 
-  // No revalidatePath — counter updates optimistically on client
+  revalidatePath('/operatore')
   return { success: true }
 }
 
