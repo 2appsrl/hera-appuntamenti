@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { addCampaignEntry, deleteCampaignEntry } from './actions'
-import type { OperatorKpi, KpiTotals, CampaignEntry } from './page'
+import type { OperatorKpi, KpiTotals, CampaignEntryEnriched } from './page'
 
 function ProgressBar({ value, max, size = 'md' }: { value: number; max: number; size?: 'sm' | 'md' | 'lg' }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
@@ -268,18 +268,27 @@ export default function KpiPageClient({
                       {/* Expanded entries */}
                       {expandedEntries === op.operatorId && op.entries.length > 0 && (
                         <div className="mt-2 space-y-1 text-left">
-                          {op.entries.map((entry: CampaignEntry) => (
-                            <div key={entry.id} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs">
-                              <div>
+                          {op.entries.map((entry: CampaignEntryEnriched) => (
+                            <div key={entry.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs">
+                              <div className="flex-shrink-0 min-w-[88px]">
                                 <span className="font-semibold text-gray-700">+{entry.count}</span>
                                 {entry.note && <span className="text-gray-400 ml-1.5">— {entry.note}</span>}
                                 <span className="text-gray-300 ml-1.5">
                                   {new Date(entry.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                                 </span>
                               </div>
+                              <div className="flex-1 flex items-center gap-2 min-w-[120px]">
+                                <div className="flex-1 min-w-[60px]">
+                                  <ProgressBar value={entry.callCount} max={entry.target} size="sm" />
+                                </div>
+                                <span className="font-semibold text-gray-700 whitespace-nowrap tabular-nums">
+                                  {entry.callCount} / {entry.target}
+                                </span>
+                                <PctBadge value={entry.callCount} max={entry.target} />
+                              </div>
                               <button
                                 onClick={() => handleDeleteEntry(entry.id)}
-                                className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer p-0.5"
+                                className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer p-0.5 flex-shrink-0"
                                 title="Elimina"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
