@@ -88,6 +88,8 @@ export default async function KpiPage({
     .select('user_id, created_at')
     .gte('created_at', monthRange.fromUTC)
     .lte('created_at', monthRange.toUTC)
+    .order('created_at', { ascending: true })
+    .range(0, 49999)
 
   if (params.operator) {
     callQuery = callQuery.eq('user_id', params.operator)
@@ -158,11 +160,12 @@ export default async function KpiPage({
     const opCallOutcomes = (callOutcomes || []).filter(
       (c: { user_id: string; created_at: string }) => c.user_id === opId
     )
-    const endOfMonthIso = `${lastOfMonth}T23:59:59.999`
 
     const entries: CampaignEntryEnriched[] = operatorEntries.map((entry, i) => {
       const nextEntry = operatorEntries[i + 1]
-      const intervalEndIso = nextEntry ? nextEntry.created_at : endOfMonthIso
+      const intervalEndIso = nextEntry ? nextEntry.created_at : monthRange.toUTC
+      // Half-open interval [entry.created_at, intervalEndIso): a call recorded
+      // at the exact instant a new voce is created counts toward the new voce.
       const callCount = opCallOutcomes.filter(c =>
         c.created_at >= entry.created_at && c.created_at < intervalEndIso
       ).length
