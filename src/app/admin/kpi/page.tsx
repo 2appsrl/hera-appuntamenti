@@ -83,28 +83,14 @@ export default async function KpiPage({
     apptQuery = apptQuery.eq('user_id', params.operator)
   }
 
-  let callQuery = admin
-    .from('call_outcomes')
-    .select('user_id, created_at')
-    .gte('created_at', monthRange.fromUTC)
-    .lte('created_at', monthRange.toUTC)
-    .order('created_at', { ascending: true })
-    .range(0, 49999)
-
-  if (params.operator) {
-    callQuery = callQuery.eq('user_id', params.operator)
-  }
-
   const [
     { data: operators },
     { data: campaignEntries },
     { data: appointmentData },
-    { data: callOutcomes },
   ] = await Promise.all([
     admin.from('users').select('id, name').eq('role', 'operatore').order('name'),
     admin.from('campaign_entries').select('*').eq('month', selectedMonth),
     apptQuery,
-    callQuery,
   ])
 
   // Determine which operators to include
@@ -135,6 +121,34 @@ export default async function KpiPage({
   )
   const countMap = new Map<string, { calls: number; appts: number }>(perOperatorCounts)
 
+  // Per-entry call count via SQL COUNT. We avoid a row-level fetch because the
+  // PostgREST server can cap results below the client's .range() request,
+  // silently truncating large months.
+  const entriesByOperator = new Map<string, CampaignEntry[]>()
+  for (const op of operatorList) {
+    const opEntries = ((campaignEntries || []) as CampaignEntry[])
+      .filter(e => e.user_id === op.id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    entriesByOperator.set(op.id, opEntries)
+  }
+
+  const entryCountPairs = await Promise.all(
+    Array.from(entriesByOperator.entries()).flatMap(([opId, opEntries]) =>
+      opEntries.map(async (entry, i) => {
+        const nextEntry = opEntries[i + 1]
+        const intervalEndIso = nextEntry ? nextEntry.created_at : monthRange.toUTC
+        const { count } = await admin
+          .from('call_outcomes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', opId)
+          .gte('created_at', entry.created_at)
+          .lt('created_at', intervalEndIso)
+        return [entry.id, count ?? 0] as const
+      })
+    )
+  )
+  const entryCallCounts = new Map<string, number>(entryCountPairs)
+
   const operatorStats: OperatorKpi[] = operatorList.map(({ id: opId, name }) => {
     const nominativi = (campaignEntries || [])
       .filter((e: CampaignEntry) => e.user_id === opId)
@@ -153,28 +167,12 @@ export default async function KpiPage({
       return outcome?.outcome === 'positivo'
     }).length
 
-    const operatorEntries = ((campaignEntries || []) as CampaignEntry[])
-      .filter(e => e.user_id === opId)
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-
-    const opCallOutcomes = (callOutcomes || []).filter(
-      (c: { user_id: string; created_at: string }) => c.user_id === opId
-    )
-
-    const entries: CampaignEntryEnriched[] = operatorEntries.map((entry, i) => {
-      const nextEntry = operatorEntries[i + 1]
-      const intervalEndIso = nextEntry ? nextEntry.created_at : monthRange.toUTC
-      // Half-open interval [entry.created_at, intervalEndIso): a call recorded
-      // at the exact instant a new voce is created counts toward the new voce.
-      const callCount = opCallOutcomes.filter(c =>
-        c.created_at >= entry.created_at && c.created_at < intervalEndIso
-      ).length
-      return {
-        ...entry,
-        callCount,
-        target: Math.ceil(entry.count * 0.15),
-      }
-    })
+    const operatorEntries = entriesByOperator.get(opId) ?? []
+    const entries: CampaignEntryEnriched[] = operatorEntries.map(entry => ({
+      ...entry,
+      callCount: entryCallCounts.get(entry.id) ?? 0,
+      target: Math.ceil(entry.count * 0.15),
+    }))
 
     return {
       operatorId: opId,
