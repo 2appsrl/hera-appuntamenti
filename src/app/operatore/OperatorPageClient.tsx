@@ -201,7 +201,7 @@ export default function OperatorPageClient({
                 Stop esiti su Salesforce Hera
               </h2>
               <p className="text-red-50 text-sm mt-2 font-medium">
-                Hai raggiunto il 15% dei nominativi del mese
+                Hai raggiunto il 15% della lista corrente
               </p>
             </div>
             <div className="p-8 text-center space-y-6">

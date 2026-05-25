@@ -38,8 +38,7 @@ export default async function OperatorePage() {
     { data: activeSession },
     { data: todaySessions },
     { data: allAppointments },
-    { count: monthlyCallCountResult },
-    { data: campaignEntriesData },
+    { data: latestEntryRows },
   ] = await Promise.all([
     supabase
       .from('call_outcomes')
@@ -82,25 +81,30 @@ export default async function OperatorePage() {
       .eq('user_id', user.id)
       .order('appointment_date')
       .order('appointment_time'),
-    // Monthly call count (from 1st of month)
-    supabase
-      .from('call_outcomes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', monthStart),
-    // Nominativi assegnati all'operatrice nel mese corrente (RLS solo superadmin)
+    // Lista corrente (= ultima campaign_entry caricata) per l'operatrice
     createAdminClient()
       .from('campaign_entries')
-      .select('count')
+      .select('count, created_at')
       .eq('user_id', user.id)
-      .eq('month', currentMonth),
+      .order('created_at', { ascending: false })
+      .limit(1),
   ])
 
-  const nominativiThisMonth = (campaignEntriesData || []).reduce(
-    (sum: number, e: { count: number }) => sum + (e.count ?? 0),
-    0,
-  )
+  // Trigger per il popup "Stop esiti": basato sulla LISTA CORRENTE
+  // (15% dell'ultima entry caricata), non sul totale del mese. Quando il
+  // superadmin carica una nuova lista, il count riparte da 0 perché conta
+  // solo le chiamate fatte DOPO la created_at della lista corrente.
+  const latestEntry = (latestEntryRows || [])[0] ?? null
+  const nominativiThisMonth = latestEntry?.count ?? 0
   const salesforceCallTarget = Math.ceil(nominativiThisMonth * 0.15)
+
+  const { count: monthlyCallCountResult } = latestEntry
+    ? await supabase
+        .from('call_outcomes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', latestEntry.created_at)
+    : { count: 0 }
 
   const counts: OutcomeSummary = { non_risponde: 0, negativo: 0, appuntamento: 0 }
   outcomes?.forEach(o => { counts[o.outcome as keyof OutcomeSummary]++ })
