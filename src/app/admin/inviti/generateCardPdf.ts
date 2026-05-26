@@ -1,5 +1,7 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from 'pdf-lib'
 import QRCode from 'qrcode'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 export interface CardData {
   agentName: string
@@ -41,35 +43,55 @@ async function drawCard(
   origin: { x: number; topY: number },
   data: CardData,
   fonts: Fonts,
+  logo: PDFImage | null,
 ): Promise<void> {
   const x = origin.x
   const top = origin.topY
   const yFromTop = (offset: number) => top - offset
 
-  // 1. Logo placeholder band (dashed magenta rectangle with centered label)
-  page.drawRectangle({
-    x: x + 20,
-    y: yFromTop(40),
-    width: 140,
-    height: 28,
-    borderColor: MAGENTA,
-    borderWidth: 1.2,
-    borderDashArray: [3, 2.5],
-  })
-  const logoLabel = 'LOGO HERACOMM'
-  const logoLabelSize = 9
-  const logoLabelW = fonts.bold.widthOfTextAtSize(logoLabel, logoLabelSize)
-  page.drawText(logoLabel, {
-    x: x + 20 + (140 - logoLabelW) / 2,
-    y: yFromTop(28),
-    size: logoLabelSize,
-    font: fonts.bold,
-    color: MAGENTA,
-  })
+  // 1. Brand logo (top-left). Falls back to the dashed magenta placeholder if
+  // the official asset is missing on disk.
+  if (logo) {
+    const logoMaxW = 200
+    const logoMaxH = 50
+    const aspect = logo.width / logo.height
+    let drawW = logoMaxW
+    let drawH = drawW / aspect
+    if (drawH > logoMaxH) {
+      drawH = logoMaxH
+      drawW = drawH * aspect
+    }
+    page.drawImage(logo, {
+      x: x + 18,
+      y: yFromTop(10 + drawH),
+      width: drawW,
+      height: drawH,
+    })
+  } else {
+    page.drawRectangle({
+      x: x + 20,
+      y: yFromTop(40),
+      width: 140,
+      height: 28,
+      borderColor: MAGENTA,
+      borderWidth: 1.2,
+      borderDashArray: [3, 2.5],
+    })
+    const logoLabel = 'LOGO HERACOMM'
+    const logoLabelSize = 9
+    const logoLabelW = fonts.bold.widthOfTextAtSize(logoLabel, logoLabelSize)
+    page.drawText(logoLabel, {
+      x: x + 20 + (140 - logoLabelW) / 2,
+      y: yFromTop(28),
+      size: logoLabelSize,
+      font: fonts.bold,
+      color: MAGENTA,
+    })
+  }
   // Separator line below the brand band
   page.drawLine({
-    start: { x: x + 16, y: yFromTop(56) },
-    end: { x: x + CARD_W - 16, y: yFromTop(56) },
+    start: { x: x + 16, y: yFromTop(68) },
+    end: { x: x + CARD_W - 16, y: yFromTop(68) },
     thickness: 0.6,
     color: GRAY_LINE,
   })
@@ -269,12 +291,31 @@ async function drawCard(
   })
 }
 
+async function loadBrandLogo(doc: PDFDocument): Promise<PDFImage | null> {
+  // Stored under /public so the file is shipped with the build but isn't
+  // exposed as a route (Next.js still serves it statically, but pdf-lib reads
+  // it directly off disk on the server).
+  const logoPath = path.join(
+    process.cwd(),
+    'public',
+    'LOGO AGENZIA AUTORIZZATA - HERACOMM.png',
+  )
+  try {
+    const bytes = await fs.readFile(logoPath)
+    return await doc.embedPng(bytes)
+  } catch (e) {
+    console.warn('[generateCardPdf] brand logo not found, falling back to placeholder:', e)
+    return null
+  }
+}
+
 export async function generateCardsPdf(cards: CardData[]): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   const fonts: Fonts = {
     regular: await doc.embedFont(StandardFonts.Helvetica),
     bold: await doc.embedFont(StandardFonts.HelveticaBold),
   }
+  const logo = await loadBrandLogo(doc)
 
   const cardsPerPage = 4
   const pageCount = Math.max(1, Math.ceil(cards.length / cardsPerPage))
@@ -288,7 +329,7 @@ export async function generateCardsPdf(cards: CardData[]): Promise<Uint8Array> {
       const cardX = col * CARD_W
       // Row 0 = top row -> topY = A4_H; row 1 = bottom row -> topY = A4_H - CARD_H
       const topY = A4_H - row * CARD_H
-      await drawCard(page, doc, { x: cardX, topY }, slice[j], fonts)
+      await drawCard(page, doc, { x: cardX, topY }, slice[j], fonts, logo)
     }
 
     // Crop marks at page center (where the 4 cards meet)
