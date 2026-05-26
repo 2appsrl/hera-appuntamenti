@@ -131,7 +131,10 @@ export async function stopCallSession() {
     .eq('user_id', userId)
     .is('ended_at', null)
 
-  if (error) throw new Error('Errore nella chiusura sessione')
+  if (error) {
+    console.error('stopCallSession DB error', error)
+    throw new Error(`Errore nella chiusura sessione: ${error.message}`)
+  }
   revalidatePath('/operatore')
 }
 

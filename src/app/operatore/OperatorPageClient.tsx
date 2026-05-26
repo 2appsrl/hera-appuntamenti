@@ -105,8 +105,10 @@ export default function OperatorPageClient({
       setIsActive(true)
       setSessionStart(new Date())
       setElapsed(0)
-    } catch {
-      alert('Errore nell\'avvio sessione')
+    } catch (e) {
+      console.error('startCallSession failed', e)
+      const msg = e instanceof Error ? e.message : 'Errore nell\'avvio sessione'
+      alert(`Errore nell'avvio sessione: ${msg}`)
     } finally {
       setLoading(false)
     }
@@ -119,8 +121,10 @@ export default function OperatorPageClient({
       setIsActive(false)
       setSessionStart(null)
       setElapsed(0)
-    } catch {
-      alert('Errore nella chiusura sessione')
+    } catch (e) {
+      console.error('stopCallSession failed', e)
+      const msg = e instanceof Error ? e.message : 'Errore nella chiusura sessione'
+      alert(`Errore nella chiusura sessione: ${msg}`)
     } finally {
       setLoading(false)
     }
